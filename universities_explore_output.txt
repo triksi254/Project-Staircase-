@@ -1,0 +1,312 @@
+
+================================================================================
+UNIVERSITY: Buckinghamshire New University (https://www.bucks.ac.uk)
+================================================================================
+[nav] https://www.bucks.ac.uk/international FAILED: Error: Page.goto: net::ERR_EMPTY_RESPONSE at https://www.bucks.ac.uk/international
+Call
+[nav] https://www.bucks.ac.uk/international/countries status=403
+[nav] https://www.bucks.ac.uk FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/
+Call log:
+ 
+[nav] https://www.bucks.ac.uk/international FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/internationa
+[nav] https://www.bucks.ac.uk/international/countries FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/internationa
+[nav] https://www.bucks.ac.uk FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/
+Call log:
+ 
+[nav] https://www.bucks.ac.uk/international FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/internationa
+[nav] https://www.bucks.ac.uk/international/countries FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/internationa
+[nav] https://www.bucks.ac.uk FAILED: Error: Page.goto: net::ERR_SOCKET_NOT_CONNECTED at https://www.bucks.ac.uk/
+Call log:
+ 
+
+================================================================================
+UNIVERSITY: Birmingham City University (https://www.bcu.ac.uk)
+================================================================================
+[nav] https://www.bcu.ac.uk/international status=200
+[nav] https://www.bcu.ac.uk/international/countries status=200
+  Kenya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/kenya
+  Kenya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Kenya
+[nav] https://www.bcu.ac.uk status=200
+[nav] https://www.bcu.ac.uk/international status=200
+  (no text)                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country
+[nav] https://www.bcu.ac.uk/international/countries status=200
+  Skip to main content                                         => https://www.bcu.ac.uk/international/bcu-in-your-country#aMainContent
+  Skip to main menu                                            => https://www.bcu.ac.uk/international/bcu-in-your-country#aMainNav
+  Skip to section menu                                         => https://www.bcu.ac.uk/international/bcu-in-your-country#aSectionNav
+  (no text)                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country
+  Algeria                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/algeria
+  Botswana                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/botswana
+  Cameroon                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/cameroon
+  Egypt                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/egypt
+  Gambia                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/gambia
+  Ghana                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/ghana
+  Kenya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/kenya
+  Libya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/libya
+  Mauritius                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/mauritius
+  Morocco                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/morocco
+  Nigeria                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/nigeria
+  Norway                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/norway
+  South Africa                                                 => https://www.bcu.ac.uk/international/bcu-in-your-country/south-africa
+  Tanzania                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/tanzania
+  Uganda                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/uganda
+  Zimbabwe                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/zimbabwe
+  Brazil                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/brazil
+  Canada                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/canada
+  Caribbean                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/caribbean
+  Colombia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/colombia
+  Argentina                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/argentina
+  Mexico                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/mexico
+  USA                                                          => https://www.bcu.ac.uk/international/bcu-in-your-country/usa
+  Venezuela                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/venezuela
+  China                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/china
+  Azerbaijan                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/azerbaijan
+  Kazakhstan                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/kazakhstan
+  Moldova                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/moldova
+  Turkey                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/turkey
+  Ukraine                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/ukraine
+  Austria                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/austria
+  Belgium                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/belgium
+  Bulgaria                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/bulgaria
+  Croatia                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/croatia
+  Cyprus (Republic of)                                         => https://www.bcu.ac.uk/international/bcu-in-your-country/cyprus
+  Czech Republic                                               => https://www.bcu.ac.uk/international/bcu-in-your-country/czech-republic
+  Denmark                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/denmark
+  Estonia                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/estonia
+  Finland                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/finland
+  France                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/france
+  Germany                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/germany
+  Greece                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/greece
+  Hungary                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/hungary
+  Ireland (Republic of)                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/ireland
+  Italy                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/italy
+  Latvia                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/latvia
+  Lithuania                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/lithuania
+  Luxembourg                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/luxembourg
+  Malta                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/malta
+  Peru                                                         => https://www.bcu.ac.uk/international/bcu-in-your-country/peru
+  Poland                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/poland
+  Portugal                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/portugal
+  Romania                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/romania
+  Slovakia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/slovakia
+  Slovenia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/slovenia
+  Spain                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/spain
+  Sweden                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/sweden
+  The Netherlands                                              => https://www.bcu.ac.uk/international/bcu-in-your-country/the-netherlands
+  United Kingdom                                               => https://www.bcu.ac.uk/international/bcu-in-your-country/united-kingdom
+  Bahrain                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/bahrain
+  Iran                                                         => https://www.bcu.ac.uk/international/bcu-in-your-country/iran
+  Jordan                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/jordan
+  Kuwait                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/kuwait
+  Lebanon                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/lebanon
+  Oman                                                         => https://www.bcu.ac.uk/international/bcu-in-your-country/oman
+  Palestine                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/palestine
+  Qatar                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/qatar
+  Saudi Arabia                                                 => https://www.bcu.ac.uk/international/bcu-in-your-country/saudi-arabia
+  UAE                                                          => https://www.bcu.ac.uk/international/bcu-in-your-country/uae
+  Bangladesh                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/bangladesh
+  India                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/india
+  Maldives                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/maldives
+  Nepal                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/nepal
+  Pakistan                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/pakistan
+  Sri Lanka                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/sri-lanka
+  Australia                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/australia
+  Brunei                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/brunei
+  Cambodia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/cambodia
+  Hong Kong, China                                             => https://www.bcu.ac.uk/international/bcu-in-your-country/hong-kong
+  Indonesia                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/indonesia
+  Japan                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/japan
+  Malaysia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/malaysia
+  Philippines                                                  => https://www.bcu.ac.uk/international/bcu-in-your-country/philippines
+  Republic of Korea                                            => https://www.bcu.ac.uk/international/bcu-in-your-country/republic-of-korea
+  Singapore                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/singapore
+  Taiwan, China                                                => https://www.bcu.ac.uk/international/bcu-in-your-country/taiwan
+  Thailand                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/thailand
+  Vietnam                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/vietnam
+  Zambia                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/zambia
+  View all countries                                           => https://www.bcu.ac.uk/international/bcu-in-your-country#
+  Cameroon                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Cameroon
+  Egypt                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Egypt
+  Gambia                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Gambia
+  Ghana                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Ghana
+  Kenya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Kenya
+  Libya                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Libya
+  Mauritius                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Mauritius
+  Morocco                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Morocco
+  Nigeria                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Nigeria
+  South Africa                                                 => https://www.bcu.ac.uk/international/bcu-in-your-country/South-Africa
+  Tanzania                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Tanzania
+  Uganda                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Uganda
+  Zambia                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Zambia
+  Zimbabwe                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Zimbabwe
+  Brazil                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Brazil
+  Canada                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Canada
+  Caribbean                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Caribbean
+  Colombia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Colombia
+  Mexico                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Mexico
+  USA                                                          => https://www.bcu.ac.uk/international/bcu-in-your-country/USA
+  Venezuela                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Venezuela
+  Mainland China                                               => https://www.bcu.ac.uk/international/bcu-in-your-country/China
+  Taiwan                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Taiwan
+  Azerbaijan                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/Azerbaijan
+  Kazakhstan                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/Kazakhstan
+  Moldova                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Moldova
+  Norway                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Norway
+  Turkey                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Turkey
+  Ukraine                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Ukraine
+  Croatia                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Croatia
+  Denmark                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Denmark
+  Estonia                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Estonia
+  Finland                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Finland
+  France                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/France
+  Germany                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Germany
+  Greece                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Greece
+  Hungary                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Hungary
+  Lithuania                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Lithuania
+  Luxembourg                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/Luxembourg
+  Malta                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Malta
+  Poland                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Poland
+  Portugal                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Portugal
+  Romania                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Romania
+  Slovakia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Slovakia
+  Slovenia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Slovenia
+  Spain                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Spain
+  Sweden                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Sweden
+  Bahrain                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Bahrain
+  Kuwait                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Kuwait
+  Lebanon                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Lebanon
+  Oman                                                         => https://www.bcu.ac.uk/international/bcu-in-your-country/Oman
+  Palestine                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Palestine
+  Qatar                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Qatar
+  Saudi Arabia                                                 => https://www.bcu.ac.uk/international/bcu-in-your-country/Saudi-Arabia
+  UAE                                                          => https://www.bcu.ac.uk/international/bcu-in-your-country/UAE
+  Bangladesh                                                   => https://www.bcu.ac.uk/international/bcu-in-your-country/Bangladesh
+  India                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/India
+  Maldives                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Maldives
+  Nepal                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Nepal
+  Pakistan                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Pakistan
+  Sri Lanka                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Sri-Lanka
+  Australia                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Australia
+  Brunei                                                       => https://www.bcu.ac.uk/international/bcu-in-your-country/Brunei
+  Cambodia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Cambodia
+  Indonesia                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Indonesia
+  Japan                                                        => https://www.bcu.ac.uk/international/bcu-in-your-country/Japan
+  Malaysia                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Malaysia
+  Philippines                                                  => https://www.bcu.ac.uk/international/bcu-in-your-country/Philippines
+  Republic of Korea                                            => https://www.bcu.ac.uk/international/bcu-in-your-country/Republic-of-Korea
+  Singapore                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country/Singapore
+  Thailand                                                     => https://www.bcu.ac.uk/international/bcu-in-your-country/Thailand
+  Vietnam                                                      => https://www.bcu.ac.uk/international/bcu-in-your-country/Vietnam
+  Find out more about our agents                               => https://www.bcu.ac.uk/international/bcu-in-your-country/our-agents
+  Sign in                                                      => https://www.bcu.ac.uk/account/login?redirectUrl=https://www.bcu.ac.uk/international/bcu-in-your-country
+[nav] https://www.bcu.ac.uk status=200
+  (no text)                                                    => https://www.bcu.ac.uk/international/bcu-in-your-country
+[nav] https://www.bcu.ac.uk/international status=200
+  (no text)                                                    => https://www.bcu.ac.uk/student-info/how-to-apply/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements/bcuic
+  (no text)                                                    => https://www.bcu.ac.uk/international/your-application/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements
+[nav] https://www.bcu.ac.uk/international/countries status=200
+  (no text)                                                    => https://www.bcu.ac.uk/student-info/how-to-apply/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements/bcuic
+  (no text)                                                    => https://www.bcu.ac.uk/international/your-application/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements
+[nav] https://www.bcu.ac.uk status=200
+  (no text)                                                    => https://www.bcu.ac.uk/student-info/how-to-apply/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements/bcuic
+  (no text)                                                    => https://www.bcu.ac.uk/international/your-application/entry-requirements
+  (no text)                                                    => https://www.bcu.ac.uk/international/meeting-entry-requirements
+
+================================================================================
+UNIVERSITY: University of Salford (https://www.salford.ac.uk)
+================================================================================
+[nav] https://www.salford.ac.uk/international status=200
+[nav] https://www.salford.ac.uk/international/countries FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sa
+[nav] https://www.salford.ac.uk FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sa
+[nav] https://www.salford.ac.uk/international status=200
+  Your country or region
+
+For country or region-specific infor => https://www.salford.ac.uk/international/your-country-or-region
+  Join us on WeChat                                            => https://www.salford.ac.uk/international/your-country-or-region/salford-and-china
+[nav] https://www.salford.ac.uk/international/countries FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sa
+[nav] https://www.salford.ac.uk status=200
+[nav] https://www.salford.ac.uk/international status=200
+  Your country or region
+
+For country or region-specific infor => https://www.salford.ac.uk/international/your-country-or-region
+[nav] https://www.salford.ac.uk/international/countries FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sa
+[nav] https://www.salford.ac.uk status=200
+
+================================================================================
+UNIVERSITY: Robert Gordon University (https://www.rgu.ac.uk)
+================================================================================
+[nav] https://www.rgu.ac.uk/international status=200
+[nav] https://www.rgu.ac.uk/international/countries status=404
+[nav] https://www.rgu.ac.uk status=200
+[nav] https://www.rgu.ac.uk/international status=200
+  Your country or territory                                    => https://www.rgu.ac.uk/study/international-students/your-country-or-territory
+  Meet Us In Your Country                                      => https://www.rgu.ac.uk/study/international-students/meet-us-in-your-country
+[nav] https://www.rgu.ac.uk/international/countries status=404
+  Skip to content                                              => https://www.rgu.ac.uk/international/countries#content-wrap
+[nav] https://www.rgu.ac.uk status=200
+[nav] https://www.rgu.ac.uk/international status=200
+[nav] https://www.rgu.ac.uk/international/countries status=404
+[nav] https://www.rgu.ac.uk status=200
+
+================================================================================
+UNIVERSITY: University of South Wales (https://www.southwales.ac.uk)
+================================================================================
+[nav] https://www.southwales.ac.uk/international status=200
+[nav] https://www.southwales.ac.uk/international/countries status=403
+[nav] https://www.southwales.ac.uk status=403
+[nav] https://www.southwales.ac.uk/international status=403
+[nav] https://www.southwales.ac.uk/international/countries status=403
+[nav] https://www.southwales.ac.uk status=403
+[nav] https://www.southwales.ac.uk/international status=403
+[nav] https://www.southwales.ac.uk/international/countries status=403
+[nav] https://www.southwales.ac.uk status=403
+
+================================================================================
+UNIVERSITY: University of Central Lancashire (https://www.uclan.ac.uk)
+================================================================================
+[nav] https://www.uclan.ac.uk/international status=200
+[nav] https://www.uclan.ac.uk/international/countries status=404
+[nav] https://www.uclan.ac.uk status=200
+[nav] https://www.uclan.ac.uk/international status=200
+  Find your country or region                                  => https://www.lancashire.ac.uk/international-students/country
+[nav] https://www.uclan.ac.uk/international/countries status=404
+  Consent                                                      => https://www.lancashire.ac.uk/international/countries#
+  Skip to main content                                         => https://www.lancashire.ac.uk/international/countries#mainContent
+  Find your country or region                                  => https://www.lancashire.ac.uk/international-students/country
+[nav] https://www.uclan.ac.uk status=200
+  Find your country or region                                  => https://www.lancashire.ac.uk/international-students/country
+[nav] https://www.uclan.ac.uk/international status=200
+  English language entry requirements                          => https://www.lancashire.ac.uk/international-students/english-requirements
+[nav] https://www.uclan.ac.uk/international/countries status=404
+  English language entry requirements                          => https://www.lancashire.ac.uk/international-students/english-requirements
+[nav] https://www.uclan.ac.uk status=200
+  English language entry requirements                          => https://www.lancashire.ac.uk/international-students/english-requirements
+
+================================================================================
+UNIVERSITY: University of Hertfordshire (https://www.herts.ac.uk)
+================================================================================
+[nav] https://www.herts.ac.uk/international status=200
+[nav] https://www.herts.ac.uk/international/countries status=404
+[nav] https://www.herts.ac.uk status=200
+[nav] https://www.herts.ac.uk/international status=200
+[nav] https://www.herts.ac.uk/international/countries status=404
+  Consent                                                      => https://www.herts.ac.uk/international/countries#
+[nav] https://www.herts.ac.uk status=200
+[nav] https://www.herts.ac.uk/international status=200
+  Application guidance
+
+Get step-by-step advice on applying an => https://www.herts.ac.uk/international/apply
+[nav] https://www.herts.ac.uk/international/countries status=404
+[nav] https://www.herts.ac.uk status=200

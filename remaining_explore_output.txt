@@ -1,0 +1,96 @@
+
+================================================================================
+SALFORD - Kenya page deep dive
+================================================================================
+[nav] https://www.salford.ac.uk/international/your-country-or-region/kenya FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sa
+
+================================================================================
+BCU - Kenya page
+================================================================================
+[nav] https://www.bcu.ac.uk/international/bcu-in-your-country/kenya status=200
+  Body length: 9695
+  [postgraduate] ... us Courses  Our courses   Discover our wide range of contemporary courses, built with practice-based learning and international opportunities at every stage.  Level of Study Foundation Undergraduate Postgraduate Taught Postgraduate Research Apprenticeships Mode of Study Full-time courses Part-time courses Online learning Short courses and CPD Course Search All courses Courses by subject Jan/later starts More in this section Open Days Course enquiries team Our prospectuses Our courses Find your course Open days Our prospectuses Student information  Life as a BCU student  Find out everything you need to know about being a student at BCU, including accommodation, Open Days and how to apply.  S...
+  [entry] ...tion, Open Days and how to apply.  Studying at BCU Why study at BCU Be more employable Reasons to choose us Financial support Life in Birmingham Open days Our facilities Applying for BCU How to apply Entry requirements Application advice After you apply Accommodation Enrolment Student partnership agreement Types of Study About studying here Foundation Undergraduate Postgraduate Part-time Studying abroad Apprenticeships More on studying Preparing for university Students' Union (BCUSU) Transfer arrangements Learning support University regulations The student contract Mature students Student Info Open Days Accommodation Life in Birmingham Alumni  BCU Alumni Community homepage   Your time with u...
+  [degree] ...nd Social Work Engineering Life and Sport Sciences English Health and Social Care Law Media and Cultural Studies Music and Performance Psychology Social Sciences More information Pure Portal Research Degrees Research highlights Meet our researchers Research ethos All research projects Our Research Our PhDs Home International BCU in your country Kenya Kenya  Birmingham City University is one of the UK's most dynamic institutions for higher education. We are a vibrant, multicultural university with over 31,000 students from more than 120 countries, offering an innovative and practical approach to teaching and learning.  Search for your course Explore BCU on a virtual tour Scholarships Entry re...
+  [english] ...ternational College Study costs Fee costs and scholarships Tuition fees Living costs Scholarships Earn while you learn How to pay Applying Courses How to apply Application timeline Entry requirements English requirements Foundation programmes Accepting an offer Planning your arrival January starts Get in touch Contact us BCU in your country Social Media International webinars International Guide Request a call Visit us Refer a friend Agents Partnerships International Study Why study here? How to apply Contact us For business  Visit our Business Services homepage   Access a selection of our services for businesses and organisations below or 'view all' to see all business support in each categ...
+
+================================================================================
+UCLAN - Finding Kenya page
+================================================================================
+[nav] https://www.lancashire.ac.uk/international-students/country status=200
+[nav] https://www.lancashire.ac.uk/international-students/country?page=1 status=200
+[nav] https://www.lancashire.ac.uk/international-students/country?page=2 status=200
+[nav] https://www.lancashire.ac.uk/international-students/country?page=3 status=200
+
+================================================================================
+HERTFORDSHIRE - Finding Kenya page
+================================================================================
+[nav] https://www.herts.ac.uk/international status=200
+  Application guidance
+
+Get step-by-step advice on a      https://www.herts.ac.uk/international/apply
+  [entry requirement] ...  Apply now  Applying to Hertfordshire is quick and simple. Check international and course-specific entry requirements, then receive your applicant ID once you apply.  APPLY NOW Where international students thrive and succeed globally  As an international student at Herts, you’ll thrive in a supportive and inclusive community, gaining hands-on experience, practical skills, and the confidence to su...
+  [requirement] ...y now  Applying to Hertfordshire is quick and simple. Check international and course-specific entry requirements, then receive your applicant ID once you apply.  APPLY NOW Where international students thrive and succeed globally  As an international student at Herts, you’ll thrive in a supportive and inclusive community, gaining hands-on experience, practical skills, and the confidence to succeed ...
+[nav] https://www.herts.ac.uk/international/apply FAILED: TimeoutError: Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.he
+
+================================================================================
+BUCKS - trying different URLs
+================================================================================
+[nav] https://www.bucks.ac.uk/ status=200
+[nav] https://www.bucks.ac.uk/study status=200
+  International                                           https://www.bucks.ac.uk/study/international
+  International                                           https://www.bucks.ac.uk/study/international
+  Education Agents                                        https://www.bucks.ac.uk/study/international/education-agents
+  International FAQs                                      https://www.bucks.ac.uk/study/international/international-faqs
+  International students: How to apply                    https://www.bucks.ac.uk/study/international/international-students-how-apply
+  Your Country                                            https://www.bucks.ac.uk/study/international/your-country
+  Already applied?                                        https://www.bucks.ac.uk/study/international/already-applied
+  Visas                                                   https://www.bucks.ac.uk/study/international/visas-and-immigration
+  Once you're here                                        https://www.bucks.ac.uk/study/international/once-youre-here
+  Advice and Guidance for EU students                     https://www.bucks.ac.uk/study/international/advice-and-guidance-eu-students
+  International Enquiries                                 https://www.bucks.ac.uk/study/international/international-enquiries
+  International financial support                         https://www.bucks.ac.uk/life/fees-and-funding/financial-support-bursaries-and-scholarships/international
+  General Entry Requirements                              https://www.bucks.ac.uk/study/general-entry-requirements
+  Read more                                               https://www.bucks.ac.uk/study/international
+  Learn more                                              https://www.bucks.ac.uk/study/general-entry-requirements
+[nav] https://www.bucks.ac.uk/about/international status=404
+
+================================================================================
+SOUTH WALES - trying different URLs
+================================================================================
+[nav] https://www.southwales.ac.uk/international/ status=200
+  Our Research Strategy                                   https://www.southwales.ac.uk/international/#
+  International                                           https://www.southwales.ac.uk/international/
+  Welcome                                                 https://www.southwales.ac.uk/international/welcome/
+  Find your Country or Region                             https://www.southwales.ac.uk/international/your-country/
+  Fees and Scholarships                                   https://www.southwales.ac.uk/international/fees-scholarships/
+  International Accommodation                             https://www.southwales.ac.uk/international/international-accommodation/
+  How to Apply                                            https://www.southwales.ac.uk/international/welcome/apply-questions/
+  English Language                                        https://www.southwales.ac.uk/international/english-language-programmes/
+  Visas and Pre Arrival                                   https://www.southwales.ac.uk/international/visas-and-pre-arrival/
+  Contact                                                 https://www.southwales.ac.uk/international/contact/
+  Entry requirements, contacts and more                   https://www.southwales.ac.uk/international/your-country/
+  Our affordable tuition fees                             https://www.southwales.ac.uk/international/fees-scholarships/
+                                                          https://www.southwales.ac.uk/international/
+                                                          https://www.southwales.ac.uk/international/
+                                                          https://www.southwales.ac.uk/international/
+                                                          https://www.southwales.ac.uk/international/
+  DISCOVER
+LIFE AT USW                                    https://www.southwales.ac.uk/international/welcome/
+  Browse
+    Accommodation Options                        https://www.southwales.ac.uk/international/international-accommodation/
+  Learn More
+    Visas and Arrival                        https://www.southwales.ac.uk/international/visas-and-pre-arrival/
+  HOW TO APPLY                                            https://www.southwales.ac.uk/international/welcome/apply-questions/
+  ENGLISH LANGUAGE PROGRAMMES                             https://www.southwales.ac.uk/international/english-language-programmes/
+  FOUNDATION PROGRAMMES                                   https://www.southwales.ac.uk/international/foundation-programmes/
+  VIEW OUR INTERNATIONAL STUDENT GUIDE                    https://issuu.com/uniofsouthwales/docs/international_student_guide_26-27_06db3cdcf4a86c
+  @uswinternational
+(Opens in a new tab)                  https://www.instagram.com/uswinternational/
+  Hide footer                                             https://www.southwales.ac.uk/international/#footerCollapse
+[nav] https://www.southwales.ac.uk/ status=403
+[nav] https://www.southwales.ac.uk/study/ status=403

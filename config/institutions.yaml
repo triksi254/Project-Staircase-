@@ -1,0 +1,86 @@
+# ============================================================
+# Institution Definitions
+# Each institution lists data sources with their scraping config
+# ============================================================
+
+institutions:
+  aston_university:
+    name: "Aston University"
+    country: "UK"
+    base_url: "https://www.aston.ac.uk"
+
+    data_sources:
+      courses:
+        url: "https://www.aston.ac.uk/study/find-courses"
+        type: "html"
+        paginated: true
+        pagination_param: "page"
+        max_pages: 50
+        delay: 1.5
+
+      accommodation:
+        url: "https://www.aston.ac.uk/accommodation"
+        type: "html"
+        paginated: false
+        delay: 1.5
+
+  oxford_university:
+    name: "University of Oxford"
+    country: "UK"
+    base_url: "https://www.ox.ac.uk"
+
+    data_sources:
+      courses:
+        url: "https://www.ox.ac.uk/admissions/undergraduate/courses"
+        type: "javascript"
+        paginated: true
+        pagination_param: "page"
+        max_pages: 20
+        wait_selector: ".course-list-item"
+        delay: 2.0
+
+      postgraduate:
+        url: "https://www.ox.ac.uk/admissions/graduate/courses"
+        type: "javascript"
+        paginated: true
+        pagination_param: "page"
+        max_pages: 20
+        wait_selector: ".course-item"
+        delay: 2.0
+
+  cambridge_university:
+    name: "University of Cambridge"
+    country: "UK"
+    base_url: "https://www.cam.ac.uk"
+
+    data_sources:
+      courses:
+        url: "https://www.cam.ac.uk/courses"
+        type: "html"
+        paginated: true
+        pagination_param: "page"
+        max_pages: 30
+        delay: 2.0
+
+      accommodation:
+        url: "https://www.accommodation.cam.ac.uk"
+        type: "javascript"
+        paginated: false
+        wait_selector: ".property-listing"
+        delay: 2.0
+
+  imperial_college:
+    name: "Imperial College London"
+    country: "UK"
+    base_url: "https://www.imperial.ac.uk"
+
+    data_sources:
+      courses:
+        url: "https://www.imperial.ac.uk/study/courses"
+        type: "javascript"
+        paginated: true
+        pagination_param: "page"
+        max_pages: 20
+        wait_selector: ".course-card"
+        delay: 2.0
+

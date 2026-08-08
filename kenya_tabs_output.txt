@@ -1,0 +1,213 @@
+Initial nav status: 200
+
+=== TABS / BUTTONS ===
+[BUTTON] id='' cls='eu-cookie-compliance-save-preferences-button' href='' :: Save preferences
+[BUTTON] id='' cls='disagree-button eu-cookie-compliance-save-preferences-button' href='' :: Reject all
+[BUTTON] id='' cls='agree-button eu-cookie-compliance-default-button' href='' :: Accept all categories
+[BUTTON] id='' cls='eu-cookie-withdraw-button visually-hidden' href='' :: Update preferences
+[A] id='' cls='visually-hidden focusable skip-link' href='#main-content' :: Skip to main content
+[A] id='' cls='' href='https://www.aston.ac.uk/london/' :: London
+[A] id='' cls='' href='https://online.aston.ac.uk/?utm_source=aston_london&utm_medium=aston_london&utm_campaign=main_navigation' :: Online
+[A] id='' cls='' href='/international' :: International students
+[A] id='' cls='' href='https://www.aston.ac.uk/international/clearing' :: Clearing for international students
+[A] id='' cls='' href='https://www.aston.ac.uk/international/students-applying-to-aston' :: Applying to Aston
+[A] id='' cls='' href='https://www.aston.ac.uk/international/scholarships' :: Scholarships
+[A] id='' cls='' href='https://www.aston.ac.uk/international/international-partnerships' :: International Partnerships
+[A] id='' cls='' href='/current-students' :: Aston students
+[A] id='' cls='' href='https://liveastonac.sharepoint.com/' :: Student Portal (OneAston)
+[A] id='' cls='' href='https://www.aston.ac.uk/new-students' :: New students
+[A] id='' cls='' href='/alumni' :: Alumni
+[A] id='' cls='' href='https://www.aston.ac.uk/donate' :: Donate to Aston
+[A] id='' cls='' href='https://liveastonac.sharepoint.com/sites/oneaston' :: Staff
+[A] id='' cls='' href='/courses' :: Courses
+[A] id='' cls='' href='/courses-atoz' :: A to Z of Courses
+[A] id='' cls='' href='https://www.aston.ac.uk/clearing' :: Clearing 2026
+[A] id='' cls='' href='/open-days' :: Open Days, events and webinars
+[A] id='' cls='' href='https://www.aston.ac.uk/undergraduate/why-aston' :: Why choose Aston?
+[A] id='' cls='' href='/study' :: Study at Aston
+[A] id='' cls='' href='/teaching-learning' :: Teaching and learning
+[A] id='' cls='' href='/study/undergraduate' :: Undergraduate
+[A] id='' cls='' href='/postgraduate' :: Postgraduate
+[A] id='' cls='' href='https://www.aston.ac.uk/postgraduate-research' :: Postgraduate research
+[A] id='' cls='' href='/international' :: International students
+[A] id='' cls='' href='/courses/foundation-programmes' :: Foundation Programmes
+[A] id='' cls='' href='/degree-apprenticeships' :: Degree apprenticeships
+[A] id='' cls='' href='https://online.aston.ac.uk?utm_source=aston_website&utm_medium=website&utm_campaign=main_navigation' :: Online courses
+[A] id='' cls='' href='/business/train-your-people/work-based-learning' :: Work-based degrees
+[A] id='' cls='' href='/student-life' :: Student life
+[A] id='' cls='' href='https://virtualtourcompany.co.uk/aston/index.html' :: Virtual tour
+[A] id='' cls='' href='https://www.aston.ac.uk/current-students/fees-and-finance' :: Fees and Finance
+[A] id='' cls='' href='/undergraduate/your-application/accommodation' :: Accommodation
+[A] id='' cls='' href='/support' :: Student support
+[A] id='' cls='' href='https://www.astonsu.com/' :: Student Union
+[A] id='' cls='' href='https://www.aston.ac.uk/careers' :: Careers and Placements
+[A] id='' cls='' href='/library' :: Library and Learning Services
+[A] id='' cls='' href='/student-life' :: Student life at Aston
+[A] id='' cls='' href='https://www.aston.ac.uk/student-life/birmingham' :: Birmingham life
+[A] id='' cls='' href='https://www.aston.ac.uk/student-life/commuting-to-university' :: Commuting to university
+[A] id='' cls='' href='/research' :: Research
+[A] id='' cls='' href='/research' :: Research at Aston
+[A] id='' cls='' href='/research/ref' :: Research Excellence Framework
+[A] id='' cls='' href='/research/research-impact' :: Impact case studies
+[A] id='' cls='' href='/research/supporting-our-researchers' :: Supporting our researchers
+[A] id='' cls='' href='/research/knowledge-exchange' :: Knowledge Exchange
+[A] id='' cls='' href='/research/research-and-enterprise-department' :: Research and Enterprise department
+[A] id='' cls='' href='https://www.aston.ac.uk/postgraduate-research/research-degrees' :: Research degrees
+[A] id='' cls='' href='/expert' :: Find Experts
+[A] id='' cls='' href='/business' :: For Business
+[A] id='' cls='' href='https://www.aston.ac.uk/business/talent' :: Talent
+[A] id='' cls='' href='https://www.aston.ac.uk/business/expertise' :: Expertise
+[A] id='' cls='' href='https://www.aston.ac.uk/business/space' :: Space
+[A] id='' cls='' href='https://www.aston.ac.uk/business/aston-business-hub' :: Aston Business Hub
+[A] id='' cls='' href='https://www.aston.ac.uk/about' :: About
+[A] id='' cls='' href='https://www.aston.ac.uk/about' :: About Aston University
+[A] id='' cls='' href='https://www.aston.ac.uk/latest-news' :: News
+[A] id='' cls='' href='/latest-news/aston-podcasts' :: Aston Podcasts
+[A] id='' cls='' href='https://www.aston.ac.uk/2030-strategy' :: 2030 Strategy
+[A] id='' cls='' href='https://www.aston.ac.uk/2030-strategy/student-experience-education-strategy' :: Education & Student Experience Strategy
+[A] id='' cls='' href='https://www.aston.ac.uk/business/enterprise-strategy' :: Enterprise Strategy
+[A] id='' cls='' href='https://www.aston.ac.uk/undergraduate/why-aston/rankings' :: Rankings and Awards
+[A] id='' cls='' href='https://www.aston.ac.uk/about/history' :: Our history - celebrating 60 years
+[A] id='' cls='' href='https://www.aston.ac.uk/about/governance-management' :: Governance and management
+[A] id='' cls='' href='https://www.aston.ac.uk/about/our-commitment-to-you' :: Our commitment to our students
+[A] id='' cls='' href='https://www.aston.ac.uk/about/improving-access-higher-education' :: Improving access to higher education
+[A] id='' cls='' href='https://www.aston.ac.uk/staff-public/hr/jobs' :: Jobs at Aston
+[A] id='' cls='' href='https://www.aston.ac.uk/about/visit/contact' :: Contact us
+[SPAN] id='' cls='navbar-text' href='' :: Find a course
+[A] id='' cls='' href='/international' :: International students
+[A] id='' cls='' href='https://www.aston.ac.uk/international/clearing' :: Clearing for international students
+[A] id='' cls='' href='https://www.aston.ac.uk/international/students-applying-to-aston' :: Applying to Aston
+[A] id='' cls='' href='https://www.aston.ac.uk/international/scholarships' :: Scholarships
+[A] id='' cls='' href='https://www.aston.ac.uk/international/international-partnerships' :: International Partnerships
+[A] id='' cls='' href='/current-students' :: Aston students
+[A] id='' cls='' href='https://liveastonac.sharepoint.com/' :: Student Portal (OneAston)
+[A] id='' cls='' href='https://www.aston.ac.uk/new-students' :: New students
+[A] id='' cls='' href='/alumni' :: Alumni
+[A] id='' cls='' href='https://www.aston.ac.uk/donate' :: Donate to Aston
+[A] id='' cls='' href='https://liveastonac.sharepoint.com/sites/oneaston' :: Staff
+[BUTTON] id='' cls='close-button close-button-find-a-course' href='' :: X
+[BUTTON] id='edit-submit-courses-search' cls='button js-form-submit form-submit btn-primary btn icon-befor' href='' :: Search
+[A] id='' cls='' href='https://www.aston.ac.uk/bookmarked-courses' :: View your bookmarked courses
+[BUTTON] id='edit-submit-courses-search' cls='button js-form-submit form-submit btn-primary btn icon-befor' href='' :: Apply filters
+[A] id='' cls='' href='/courses' :: Clear all
+[A] id='' cls='' href='/' :: Home
+[A] id='' cls='' href='https://www.aston.ac.uk/international' :: International Students
+[A] id='' cls='' href='https://www.aston.ac.uk/international/aston-in-your-country' :: Aston in Your Country
+[A] id='' cls='' href='https://www.aston.ac.uk/international/aston-in-your-country/africa' :: Africa
+[A] id='' cls='' href='https://www.aston.ac.uk/international/aston-in-your-country/africa/kenya' :: Kenya
+[A] id='' cls='' href='https://www.aston.ac.uk/clearing?utm_source=aston_website&utm_medium=aston_homepage&utm_campaign=aston_homepage_alert&utm_id=clearing_prereg' :: Join Priority Clearing
+[A] id='' cls='' href='https://www.aston.ac.uk/international/scholarships' :: Scholarships
+[A] id='' cls='' href='https://www.aston.ac.uk/international/students-applying' :: Applying
+[A] id='' cls='' href='https://virtualtourcompany.co.uk/aston/index.html' :: Virtual tours
+[A] id='' cls='' href='https://www.aston.ac.uk/international/kenya' :: Learn more
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: Leave your details here and discover your reason to study at Aston University
+[A] id='' cls='cta-style' href='https://app.geckoform.com/public/#/modern/21FO00qzt9xpyc00lf5tqzs03k?field448=Website%20form&field447=Enquirer' :: Register now
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: English Language Requirements
+[A] id='' cls='' href='http://www.aston.ac.uk/international/english-language-requirements' :: English language requirements
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: International Foundation Year
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: Undergraduate
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: Postgraduate
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: International Scholarships
+[A] id='' cls='' href='https://www.aston.ac.uk/international/scholarships' :: international scholarships webpage
+[A] id='' cls='' href='http://www.aston.ac.uk/international/education-agents' :: Find Aston University representatives in your country.
+[A] id='' cls='ckeditor-accordion-toggler' href='#' :: Contact us
+[A] id='' cls='' href='mailto:b.ogundeji@aston.ac.uk' :: b.ogundeji@aston.ac.uk
+[A] id='' cls='' href='mailto:africa@aston.ac.uk' :: africa@aston.ac.uk
+[A] id='' cls='aston-ui-card' href='https://www.aston.ac.uk/courses' :: Explore Our Courses See what you could study at Aston University
+[A] id='' cls='' href='https://www.facebook.com/astonuniversity/' :: Facebook
+[A] id='' cls='' href='https://twitter.com/AstonUniversity' :: Twitter
+[A] id='' cls='' href='https://www.instagram.com/AstonUniversity/' :: Instagram
+[A] id='' cls='' href='https://www.linkedin.com/school/aston-university/' :: LinkedIn
+[A] id='' cls='' href='https://www.youtube.com/user/AstonUniversity' :: Youtube
+[A] id='' cls='' href='https://www.thestudentroom.co.uk/forumdisplay.php?f=167' :: TSR
+[A] id='' cls='' href='https://www.aston.ac.uk/international/aston-in-your-country/north-east-asia/china/wechat' :: Wechat
+[A] id='' cls='' href='https://twitter.com/hashtag/teamaston' :: #TeamAston
+[A] id='' cls='' href='/bss/aston-business-school' :: Aston Business School
+[A] id='' cls='' href='https://www.aston.ac.uk/postgraduate-research/aston-doctoral-school' :: Aston Doctoral School
+[A] id='' cls='' href='/hls/aston-medical-school' :: Aston Medical School
+[A] id='' cls='' href='https://www.aston.ac.uk/hls/aston-pharmacy-school' :: Aston Pharmacy School
+[A] id='' cls='' href='/eps/computer-science-and-digital-technologies' :: School of Computer Science and Digital Technologies
+[A] id='' cls='' href='https://www.aston.ac.uk/eps/engineering-and-technology' :: School of Engineering and Innovation
+[A] id='' cls='' href='https://www.aston.ac.uk/bss/school-law-and-social-sciences' :: School of Law and Social Sciences
+[A] id='' cls='' href='https://www.aston.ac.uk/school-of-medicine-pharmacy-and-biosciences' :: School of Medicine, Pharmacy and Biosciences
+[A] id='' cls='' href='https://www.aston.ac.uk/school-of-psychology-health-and-clinical-sciences' :: School of Psychology, Health and Clinical Sciences
+[A] id='' cls='' href='/current-students/support-services/the-hub' :: Student support services
+[A] id='' cls='' href='/latest-news' :: News
+[A] id='' cls='' href='/latest-news/press-team' :: Press office
+[A] id='' cls='' href='/open-days/undergraduate' :: Open days
+[A] id='' cls='' href='/staff-public/hr/jobs' :: Jobs and vacancies
+[A] id='' cls='' href='/international' :: Aston Global
+[A] id='' cls='' href='https://online.aston.ac.uk/' :: Aston Online
+[A] id='' cls='' href='https://reportandsupport.aston.ac.uk/' :: Report and Support
+[A] id='' cls='' href='https://www.aston.ac.uk/about/principles-and-policies/preventing-and-responding-harassment-and-sexual-misconduct-aston-university' :: Preventing and responding to harassment and sexual misconduct
+[A] id='' cls='' href='https://www.aston.ac.uk/about/principles-and-policies/freedom-of-speech' :: Freedom of speech
+[A] id='' cls='' href='/sro' :: Student Recruitment and Outreach
+[A] id='' cls='' href='tel:01212043000' :: +44 (0)121 204 3000
+[A] id='' cls='' href='/about/visit' :: Visit us
+[A] id='' cls='' href='/about/departments' :: University departments
+[A] id='' cls='' href='/information/accessibility-statement' :: Accessibility
+[A] id='' cls='' href='/information/cookies' :: Cookies
+[A] id='' cls='' href='/information/disclaimer' :: Disclaimer
+[A] id='' cls='' href='/about/statutes-ordinances-regulations/publication-scheme' :: Publication Scheme
+[A] id='' cls='' href='/about/statutes-ordinances-regulations/publication-scheme/governance-compliance' :: Modern Slavery Act
+[A] id='' cls='' href='/about/statutes-ordinances-regulations/publication-scheme/policies-regulations/data-protection/privacy-notices' :: Privacy
+[BUTTON] id='backtotop' cls='' href='' :: Back to top
+
+=== CLICKING POSTGRADUATE ===
+Click result: 1 elements found, clicked first: A.ckeditor-accordion-toggler
+
+=== PAGE TEXT AFTER CLICK (len=3865) ===
+
+--- KENYA (5 hits) ---
+About | Find a course | Home  International Students  Aston in Your Country  Africa  Kenya | Clearing 2026: Join Priority Clearing
+Clearing 2026: Join Priority Clearing | Kenya | Kenya
+Kenya | Kenya
+Aston University extends a warm welcome to students from Kenya | Scholarships
+Located in the centre of Birmingham, the UK's second-largest city, Aston is a welcoming home for career-minded students. The 2025 Longitudinal Education Outcomes (LEO) data shows that employed Aston University graduates are among the highest paid in the country, earning on average £33,600 three year
+
+--- POSTGRADUATE (3 hits) ---
+International Foundation Year | Undergraduate | Postgraduate | •    Recognised Bachelors honours second class (upper) degree
+International Scholarships | Scholarships are available for applicants to undergraduate and postgraduate courses. | Explore Our Courses
+GREAT Scholarships 2022 | Scholarships worth £10,000 towards tuition fees for a one-year postgraduate taught course. | Facebook
+
+--- ENTRY REQUIREMENT (1 hits) ---
+Why do Kenyan students choose Aston University? Learn more. | Find out who to contact for help with your application, entry requirements for your country, and available scholarships. | Leave your details here and discover your reason to study at Aston University
+
+--- BACHELOR (2 hits) ---
+Postgraduate | •    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience
+•    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience | International scholarships
+
+--- DEGREE (2 hits) ---
+Postgraduate | •    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience
+•    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience | International scholarships
+
+--- SECOND CLASS (2 hits) ---
+Postgraduate | •    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience
+•    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience | International scholarships
+
+--- HONOURS (2 hits) ---
+Postgraduate | •    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience
+•    Recognised Bachelors honours second class (upper) degree | •    We can consider a Bachelors honours second class (lower) degree for some courses on a case by case basis and if student has relevant industry experience | International scholarships
+
+=== TAB DOM ANALYSIS ===
+[LI] role=None cls='' :: Undergraduate
+[A] role=None cls='' :: Undergraduate
+[LI] role=None cls='' :: Postgraduate
+[A] role=None cls='' :: Postgraduate
+[LI] role=None cls='' :: Postgraduate research
+[A] role=None cls='' :: Postgraduate research
+[DIV] role=None cls='form-item js-form-item form-type-checkbox js-form-type-checkbox form-item-field-' :: Undergraduate degrees
+[LABEL] role=None cls='control-label option' :: Undergraduate degrees
+[DIV] role=None cls='form-item js-form-item form-type-checkbox js-form-type-checkbox form-item-field-' :: Postgraduate MA/MSc courses
+[LABEL] role=None cls='control-label option' :: Postgraduate MA/MSc courses
+[DIV] role=None cls='form-item js-form-item form-type-checkbox js-form-type-checkbox form-item-field-' :: English Language and Literature
+[LABEL] role=None cls='control-label option' :: English Language and Literature
+[H2] role=None cls='' :: Country Information
+[DT] role=None cls='' :: English Language Requirements
+[A] role=None cls='ckeditor-accordion-toggler' :: English Language Requirements
+[P] role=None cls='' :: Find out more about our English language requirements.
+[A] role=None cls='' :: English language requirements
+[DT] role=None cls='' :: Undergraduate
+[A] role=None cls='ckeditor-accordion-toggler' :: Undergraduate
+[DT] role=None cls='active' :: Postgraduate
+[A] role=None cls='ckeditor-accordion-toggler' :: Postgraduate

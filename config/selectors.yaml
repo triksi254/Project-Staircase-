@@ -1,0 +1,97 @@
+# ============================================================
+# CSS Selector Definitions
+#
+# Pseudo-selectors supported:
+#   ::text              -> extract text content
+#   ::attr(name)        -> extract HTML attribute (href, src, data-id, ...)
+#   ::html              -> extract inner HTML
+#   ::all               -> extract all matches for a container field
+# ============================================================
+
+aston_university:
+  courses:
+    container: ".course-item, [data-course-item]"
+
+    fields:
+      title: "h2.course-title, .course-title::text"
+      url: "a.course-link::attr(href), a[data-course-link]::attr(href)"
+      description: ".course-description::text"
+      level: ".qualification-level::text"
+      duration: ".course-duration::text"
+      study_type: ".study-mode::text"
+      fees: ".fees-amount::text"
+      subject_area: ".subject-area::text"
+
+  accommodation:
+    container: ".accommodation-card, [data-accommodation-item]"
+
+    fields:
+      title: "h3.accommodation-title, .accommodation-name::text"
+      url: "a.accommodation-link::attr(href)"
+      location: ".accommodation-location::text"
+      price: ".price-per-week::text, .rent-amount::text"
+      room_type: ".room-type::text"
+      description: ".accommodation-description::text"
+
+oxford_university:
+  courses:
+    container: ".course-list-item, [data-course]"
+
+    fields:
+      title: ".course-title, h2::text"
+      url: "a::attr(href)"
+      description: ".course-intro, .description::text"
+      level: ".course-level, .qualification::text"
+      duration: ".course-length::text"
+      study_type: ".study-type::text"
+      fees: ".course-fees::text, .fees::text"
+
+  postgraduate:
+    container: ".course-item, [data-course-item]"
+
+    fields:
+      title: "h3, .course-name::text"
+      url: "a.course-link::attr(href), a::attr(href)"
+      description: ".course-description::text"
+      level: ".degree-type::text"
+      duration: ".duration::text"
+      study_type: ".mode-of-study::text"
+      fees: ".fees-amount::text"
+
+cambridge_university:
+  courses:
+    container: ".course-card, [data-course-card]"
+
+    fields:
+      title: "h2.course-title, .course-name::text"
+      url: "a.course-url::attr(href), a::attr(href)"
+      description: ".course-description::text"
+      level: ".course-level::text"
+      duration: ".course-duration::text"
+      study_type: ".study-mode::text"
+      fees: ".fees::text"
+
+  accommodation:
+    container: ".property-listing, [data-property]"
+
+    fields:
+      title: ".property-name, h3::text"
+      url: "a.property-link::attr(href), a::attr(href)"
+      location: ".property-location::text"
+      price: ".property-price::text"
+      room_type: ".property-type::text"
+      description: ".property-description::text"
+
+imperial_college:
+  courses:
+    container: ".course-card, [data-course-card]"
+
+    fields:
+      title: ".card-title, h3::text"
+      url: "a.card-link::attr(href), a::attr(href)"
+      description: ".card-text::text"
+      level: ".card-level::text"
+      duration: ".card-duration::text"
+      study_type: ".card-mode::text"
+      fees: ".card-fees::text"
+
