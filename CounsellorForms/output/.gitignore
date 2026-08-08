@@ -1,0 +1,3 @@
+# Force-include the output data files despite parent .gitignore
+!*.csv
+!*.json

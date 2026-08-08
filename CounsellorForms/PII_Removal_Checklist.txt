@@ -1,0 +1,46 @@
+PII REMOVAL VERIFICATION CHECKLIST
+====================================
+Use this checklist after extracting and cleaning each record.
+All items should be satisfied before a record is marked CLEAN.
+
+[ ] No email addresses remain (no '@' symbol)
+[ ] No personal phone numbers visible
+[ ] No passport or national ID numbers
+[ ] No street addresses or GPS coordinates
+[ ] No bank / financial account details
+[ ] No student or counsellor names (replaced with [NAME_REDACTED])
+[ ] No institution/company names linked to individuals
+[ ] No dates of birth or ages
+[ ] No personal social-media handles or usernames
+[ ] No IP addresses or device identifiers
+[ ] No medical or health information
+[ ] All assessment data properly categorized
+[ ] CRM IDs and reference numbers preserved
+[ ] Quality flags applied appropriately
+
+MANDATORY REDACTION MARKERS USED
+--------------------------------
+[EMAIL_REDACTED]      -> email addresses
+[PHONE_REDACTED]      -> phone / mobile numbers
+[PASSPORT_REDACTED]   -> passport / ID number ranges
+[IP_REDACTED]         -> IPv4 addresses
+[AMOUNT_REDACTED]     -> specific fund amounts
+[ADDRESS_REDACTED]    -> physical addresses
+[SOCIAL_REDACTED]     -> social media handles / URLs
+[NAME_REDACTED]       -> personal names (counsellors & students)
+[UNIVERSITY]          -> institution names (removed)
+[COUNSELLOR_ID]       -> counsellor identifier when absent
+[COUNSELLOR_EMAIL_REDACTED] -> counsellor email (replaced)
+
+KEPT (NON-PII ASSESSMENT DATA)
+------------------------------
+- Assessment rating (Cold | Good | Excellent)
+- Course of study preference
+- Study destination (country level)
+- Qualifications (without institution names)
+- English proficiency test results (IELTS / TOEFL / KCSE)
+- Intake period (month + year)
+- Funding method category (Self Funded | Sponsor | Loan)
+- CRM ID (system identifier, preserved)
+- Assessment notes / observations (anonymised)
+
