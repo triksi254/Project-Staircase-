@@ -3,18 +3,26 @@ from __future__ import annotations
 
 import csv
 import json
-import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from loguru import logger
 
+# Ensure project root on sys.path when running from elsewhere
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from processors.requirements_extractor import extract_requirements  # noqa: E402
+from scrapers.page_interaction import click_accordions, launch_browser  # noqa: E402
+
 # Suppress non-critical Playwright logs
 import logging
 logging.getLogger("playwright").setLevel(logging.WARNING)
 
-PROCESSED_DIR = Path("data/processed")
+PROCESSED_DIR = PROJECT_ROOT / "data/processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 UNIVERSITIES = [
@@ -70,101 +78,10 @@ UNIVERSITIES = [
 ]
 
 
-def extract_requirements(text: str) -> Dict[str, Optional[str]]:
-    """Extract key requirement fields from body text."""
-    result = {
-        "postgraduate_entry_requirement": None,
-        "english_language_requirement": None,
-        "bachelor_degree_requirement": None,
-        "foundation_requirement": None,
-        "scholarship_info": None,
-        "contact_info": None,
-    }
-
-    lines = text.split("\n")
-    full_text = " ".join(line.strip() for line in lines if line.strip())
-
-    # Postgraduate entry requirements
-    pg_patterns = [
-        r"(?i)(?:postgraduate|post-graduate|masters|master\'s|msc|ma\b|mba|meng).{0,300}(?:bachelor|degree|honours|second class|upper|lower|2:?[12]|2\.\s*[12])",
-        r"(?i)(?:bachelor|degree|honours).{0,200}(?:second class|upper|lower|2:?[12]|2\.\s*[12]).{0,200}(?:postgraduate|post-graduate|masters)",
-    ]
-    for pat in pg_patterns:
-        m = re.search(pat, full_text)
-        if m:
-            result["postgraduate_entry_requirement"] = m.group(0)[:1000].strip()
-            break
-
-    # Bachelor degree requirement
-    bach_pat = r"(?i)(?:bachelor|degree|honours).{0,300}(?:second class|upper|lower|2:?[12]|2\.\s*[12]|first class|gpa|grade|recognis)"
-    m = re.search(bach_pat, full_text)
-    if m:
-        result["bachelor_degree_requirement"] = m.group(0)[:800].strip()
-
-    # English language requirement
-    eng_pat = r"(?i)(?:english|ielts|toefl|language).{0,200}(?:requirement|grade|score|level|band|min).{0,300}"
-    m = re.search(eng_pat, full_text)
-    if m:
-        result["english_language_requirement"] = m.group(0)[:800].strip()
-
-    # Foundation requirement
-    found_pat = r"(?i)(?:foundation|foundation year|international foundation).{0,300}(?:year|study|kcse|grade|subject)"
-    m = re.search(found_pat, full_text)
-    if m:
-        result["foundation_requirement"] = m.group(0)[:600].strip()
-
-    # Scholarship info
-    schol_pat = r"(?i)(?:scholarship|bursary|funding|award).{0,200}(?:international|available|offer|amount)"
-    m = re.search(schol_pat, full_text)
-    if m:
-        result["scholarship_info"] = m.group(0)[:500].strip()
-
-    # Contact info
-    contact_pat = r"(?i)(?:contact|email|phone|regional manager|representative).{0,200}(?:@|\.com|\.ac|whatsapp|\+[0-9])"
-    m = re.search(contact_pat, full_text)
-    if m:
-        result["contact_info"] = m.group(0)[:400].strip()
-
-    return result
+# NOTE: extract_requirements now lives in processors.requirements_extractor
 
 
-def _click_accordions(page) -> None:
-    """Click all accordion/expandable buttons to reveal hidden content."""
-    try:
-        # Try various selectors for accordion triggers
-        accordion_selectors = [
-            "button[aria-expanded]",
-            ".accordion-trigger",
-            ".accordion-header button",
-            "[data-toggle='collapse']",
-            ".toggle",
-            ".collapse-toggle",
-            "button.collapsed",
-            "button[data-bs-toggle='collapse']",
-            "details summary",
-            ".accordion-item button",
-            "button[aria-controls]",
-            "button:has(span)",
-        ]
-        clicked = set()
-        for sel in accordion_selectors:
-            buttons = page.query_selector_all(sel)
-            for btn in buttons:
-                try:
-                    outer = btn.inner_html()
-                    if outer in clicked:
-                        continue
-                    clicked.add(outer)
-                    # Check if it's collapsed/not expanded
-                    expanded = btn.get_attribute("aria-expanded")
-                    if expanded == "false" or expanded is None:
-                        btn.click()
-                        page.wait_for_timeout(500)
-                except Exception:
-                    pass
-        logger.info("  Clicked {} accordion elements", len(clicked))
-    except Exception as exc:
-        logger.debug("  Accordion click error: {}", exc)
+# NOTE: _click_accordions moved to scrapers.page_interaction (click_accordions)
 
 
 def scrape_university(uni: Dict) -> List[Dict]:
@@ -176,12 +93,7 @@ def scrape_university(uni: Dict) -> List[Dict]:
     all_urls = [url] + uni.get("alt_urls", [])
 
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
-        ctx = b.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0 Safari/537.36",
-            viewport={"width": 1366, "height": 900},
-        )
-        page = ctx.new_page()
+        b, ctx, page = launch_browser(p)
 
         for target_url in all_urls:
             try:
@@ -196,7 +108,7 @@ def scrape_university(uni: Dict) -> List[Dict]:
 
                 # Click accordion buttons to reveal hidden content if applicable
                 if uni.get("has_accordion", False):
-                    _click_accordions(page)
+                    click_accordions(page)
                     page.wait_for_timeout(2000)
 
                 # Try to get full page text

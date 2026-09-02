@@ -146,16 +146,21 @@ Scrapper/
 │   ├── base_scraper.py          # Abstract base class
 │   ├── html_scraper.py          # BeautifulSoup-based
 │   ├── js_scraper.py            # Playwright-based
-│   └── smart_scraper.py         # Router (JS detection)
+│   ├── smart_scraper.py         # Router (JS detection)
+│   └── page_interaction.py      # Shared Playwright helpers (accordions, browser)
 │
 ├── processors/
-│   └── data_processor.py        # Data cleaning & validation
+│   ├── data_processor.py        # Data cleaning & validation
+│   └── requirements_extractor.py# Kenya entry-requirement field extraction
 │
 ├── storage/
 │   └── storage.py               # Database & export
 │
 ├── faq/
 │   └── faq_integrator.py        # FAQ cross-reference
+│
+├── CounsellorForms/             # EML assessment-form extraction (see its README)
+├── scratch/                     # One-off exploration scripts (gitignored)
 │
 ├── data/
 │   ├── raw/                     # Downloaded raw JSON
@@ -167,7 +172,8 @@ Scrapper/
 │
 └── tests/
     ├── test_scrapers.py
-    └── test_processors.py
+    ├── test_processors.py
+    └── smoke_test.py
 ```
 
 ## ✨ Key Features

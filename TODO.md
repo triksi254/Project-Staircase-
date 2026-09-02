@@ -20,3 +20,12 @@
 - [x] 15. Verify environment (venv, dependencies, Playwright Chromium)
 - [x] 16. ✅ All 23 tests passed. CLI smoke test verified.
 - [x] 17. ✅ Scraped Aston University Kenya Postgraduate MSc qualification requirements → CSV exported to `data/processed/aston_university_kenya_requirements_20260802_193822.csv`
+
+## 📋 EML Assessment Form Extraction
+
+The repo's task log (this file) was temporarily replaced by the EML extraction
+plan in commit `042008b`; the original scraper history is restored here and the
+EML pipeline status lives in its own file to avoid future clobbering:
+
+- See `CounsellorForms/TODO.md` for the EML assessment-form extraction
+  pipeline status (PII removal, categorization, CSV/JSON export).

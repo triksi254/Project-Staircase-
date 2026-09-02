@@ -1,3 +1,4 @@
-# Force-include the output data files despite parent .gitignore
-!*.csv
-!*.json
+# The cleaned assessment exports (CSV/JSON) in this directory are intentionally
+# tracked: they are the PII-redacted research corpus produced by the EML
+# pipeline. The parent .gitignore no longer blanket-ignores *.csv / *.json,
+# so these files are tracked by default.

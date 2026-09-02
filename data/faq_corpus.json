@@ -1,0 +1,295 @@
+{
+    "faqs": [
+        {
+            "question": "How long does the course take?",
+            "answer": "Most undergraduate courses take 3-4 years of full-time study. Postgraduate taught courses typically take 1-2 years, while research degrees (PhD) can take 3-4 years.",
+            "keywords": [
+                "duration",
+                "course",
+                "years",
+                "length",
+                "how long",
+                "full-time",
+                "part-time"
+            ]
+        },
+        {
+            "question": "How much are the tuition fees?",
+            "answer": "Tuition fees vary by course and level of study. UK undergraduate fees are typically capped at £9,250 per year, while international and postgraduate fees can be higher.",
+            "keywords": [
+                "fees",
+                "tuition",
+                "cost",
+                "price",
+                "finance",
+                "funding"
+            ]
+        },
+        {
+            "question": "What are the entry requirements?",
+            "answer": "Entry requirements vary by course. Most undergraduate courses require A-levels or equivalent qualifications, typically AAA-BBB. Postgraduate courses usually require a 2:1 bachelor's degree.",
+            "keywords": [
+                "entry",
+                "requirements",
+                "admission",
+                "grades",
+                "qualifications",
+                "A-level"
+            ]
+        },
+        {
+            "question": "Is the course available full-time or part-time?",
+            "answer": "Many courses are available in both full-time and part-time formats. Full-time study is typically 3-4 years, while part-time study takes longer but offers flexibility.",
+            "keywords": [
+                "full-time",
+                "part-time",
+                "study mode",
+                "mode of study"
+            ]
+        },
+        {
+            "question": "Can I study this course online?",
+            "answer": "Some courses are available as distance learning or online programmes. This allows students to study from anywhere with flexible scheduling.",
+            "keywords": [
+                "online",
+                "distance",
+                "distance learning",
+                "e-learning"
+            ]
+        },
+        {
+            "question": "What is the cost of student accommodation?",
+            "answer": "Student accommodation costs vary by location and room type. Typically, university halls range from £100-£250 per week depending on the city and facilities.",
+            "keywords": [
+                "accommodation",
+                "housing",
+                "rent",
+                "cost",
+                "price",
+                "halls",
+                "weekly"
+            ]
+        },
+        {
+            "question": "What types of accommodation are available?",
+            "answer": "Universities offer a range of accommodation options including en-suite rooms, shared bathrooms, studio flats, and family housing. On-campus halls are the most common for first-year students.",
+            "keywords": [
+                "en-suite",
+                "shared",
+                "studio",
+                "room type",
+                "halls",
+                "dormitory"
+            ]
+        },
+        {
+            "question": "How far is the accommodation from campus?",
+            "answer": "University accommodation is typically located on or near campus, usually within a 15-20 minute walk. Private housing may be further away but often cheaper.",
+            "keywords": [
+                "location",
+                "distance",
+                "campus",
+                "walk",
+                "near"
+            ]
+        },
+        {
+            "question": "When should I apply for accommodation?",
+            "answer": "It is recommended to apply for accommodation as early as possible. Most universities open accommodation applications in spring for the following academic year.",
+            "keywords": [
+                "apply",
+                "application",
+                "deadline",
+                "when",
+                "available from"
+            ]
+        },
+        {
+            "question": "What study modes are available for postgraduate courses?",
+            "answer": "Postgraduate courses are typically available in full-time, part-time, and sometimes distance learning formats. Full-time MSc/MA programmes usually take 1 year.",
+            "keywords": [
+                "postgraduate",
+                "master",
+                "msc",
+                "ma",
+                "full-time",
+                "part-time"
+            ]
+        },
+        {
+            "question": "Are scholarships available?",
+            "answer": "Many universities offer scholarships, bursaries, and financial aid packages based on academic merit, background, or financial need. Check the university's funding page for details.",
+            "keywords": [
+                "scholarship",
+                "bursary",
+                "funding",
+                "financial aid",
+                "grant"
+            ]
+        },
+        {
+            "question": "What is the difference between undergraduate and postgraduate study?",
+            "answer": "Undergraduate study (e.g., bachelor's degrees) is the first level of higher education. Postgraduate study (master's, PhD) builds on a bachelor's degree and involves more specialised, advanced learning.",
+            "keywords": [
+                "undergraduate",
+                "postgraduate",
+                "bachelor",
+                "master",
+                "level",
+                "qualification"
+            ]
+        },
+        {
+            "question": "What subjects can I study?",
+            "answer": "Universities offer courses across a wide range of subject areas including sciences, engineering, humanities, business, medicine, and the arts.",
+            "keywords": [
+                "subject",
+                "subject area",
+                "courses",
+                "programmes",
+                "discipline"
+            ]
+        },
+        {
+            "question": "Are sandwich courses or placement years available?",
+            "answer": "Some courses offer a sandwich year or work placement, typically taken between the second and final year. This provides valuable industry experience.",
+            "keywords": [
+                "sandwich",
+                "placement",
+                "work placement",
+                "year in industry"
+            ]
+        },
+        {
+            "question": "What English language tests are accepted and what scores do I need?",
+            "answer": "Most universities accept IELTS, TOEFL iBT, PTE Academic and Cambridge English. For postgraduate study a typical requirement is IELTS 6.0-6.5 overall with no band below 5.5-6.0, though requirements vary by course.",
+            "keywords": [
+                "ielts",
+                "toefl",
+                "english test",
+                "english language",
+                "pte",
+                "language requirement",
+                "band",
+                "score"
+            ]
+        },
+        {
+            "question": "Are KCSE qualifications accepted for entry?",
+            "answer": "Many UK universities accept KCSE for foundation or undergraduate entry, often with specific grade requirements. Check the university's country-specific page for Kenya for the exact KCSE grade equivalences.",
+            "keywords": [
+                "kcse",
+                "kenya",
+                "kenyan qualification",
+                "high school",
+                "secondary school",
+                "o-level"
+            ]
+        },
+        {
+            "question": "Do international students need a student visa to study in the UK?",
+            "answer": "Yes, most international students need a Student visa (formerly Tier 4). You will need a Confirmation of Acceptance for Studies (CAS) from your university, proof of funds, and English language evidence.",
+            "keywords": [
+                "visa",
+                "student visa",
+                "tier 4",
+                "cas",
+                "immigration",
+                "entry clearance"
+            ]
+        },
+        {
+            "question": "What documents do I need to submit with my application?",
+            "answer": "Applications typically require academic transcripts and certificates, English test results, a personal statement, reference letters, a copy of your passport, and proof of funding where applicable.",
+            "keywords": [
+                "documents",
+                "application requirements",
+                "transcripts",
+                "references",
+                "personal statement",
+                "checklist"
+            ]
+        },
+        {
+            "question": "When should I apply and what are the deadlines?",
+            "answer": "It is recommended to apply 6-12 months before your intended start date. Many postgraduate courses accept applications up to the start of term, but popular courses fill early and scholarship deadlines are often much earlier.",
+            "keywords": [
+                "deadline",
+                "apply",
+                "application deadline",
+                "intake",
+                "when to apply",
+                "start date"
+            ]
+        },
+        {
+            "question": "Can international students work while studying?",
+            "answer": "On a Student visa you may usually work up to 20 hours per week during term time and full-time during holidays, subject to your visa conditions.",
+            "keywords": [
+                "work",
+                "part-time work",
+                "job",
+                "working hours",
+                "student visa work"
+            ]
+        },
+        {
+            "question": "How do international students pay tuition fees?",
+            "answer": "Tuition fees can usually be paid in full or in instalments via bank transfer, international cards, or through approved agents. Some universities offer early-payment discounts.",
+            "keywords": [
+                "pay",
+                "payment",
+                "tuition",
+                "fees payment",
+                "instalment",
+                "bank transfer"
+            ]
+        },
+        {
+            "question": "What is the cost of living for international students in the UK?",
+            "answer": "Living costs typically range from £1,000 to £1,500 per month depending on the city, covering accommodation, food, transport and personal expenses. London and the South East are generally more expensive.",
+            "keywords": [
+                "cost of living",
+                "living expenses",
+                "budget",
+                "accommodation cost",
+                "monthly cost",
+                "maintenance"
+            ]
+        },
+        {
+            "question": "Can I apply before I receive my final results or passport?",
+            "answer": "Yes, you can apply with predicted grades or a conditional offer. A valid passport is needed for the visa application, but universities can issue a conditional offer before it is ready.",
+            "keywords": [
+                "conditional offer",
+                "predicted grades",
+                "passport",
+                "apply early",
+                "provisional"
+            ]
+        },
+        {
+            "question": "What happens if I have a study gap in my education?",
+            "answer": "Universities may ask you to explain any study gap. Provide evidence of work, volunteering or other productive activity during the gap to strengthen your application.",
+            "keywords": [
+                "study gap",
+                "gap year",
+                "break in study",
+                "education gap",
+                "explanation"
+            ]
+        },
+        {
+            "question": "Are there scholarships or bursaries for Kenyan international students?",
+            "answer": "Many universities offer merit-based scholarships, country-specific awards and early-application discounts for international students. Check the university's funding and scholarship pages for eligibility and deadlines.",
+            "keywords": [
+                "scholarship",
+                "bursary",
+                "grant",
+                "funding",
+                "financial aid",
+                "kenya students"
+            ]
+        }
+    ]
+}

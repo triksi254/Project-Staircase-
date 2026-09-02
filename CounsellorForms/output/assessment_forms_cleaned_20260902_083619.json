@@ -4055,7 +4055,7 @@
     "counsellor_id": "[NAME_REDACTED]",
     "rating": "Good",
     "email_date": "Thu, 05 Jun 2025 10:13:06 -0400",
-    "qualifications": "Amon [PHONE_REDACTED] East London Sept intake PG CERT in physics, Has offer letter and wants to pay the deposit Has gotten offer and asked to pay 1500 pounds Is asking if they will need the full deposit or just 1500 pounds. Does not funds to pay full deposit and POF",
+    "qualifications": "Amon [PHONE_REDACTED] East London Sept intake PG CERT in physics, Has offer letter and wants to pay the deposit Has gotten offer and asked to pay [AMOUNT_REDACTED] Is asking if they will need the full deposit or just [AMOUNT_REDACTED]. Does not funds to pay full deposit and POF",
     "english_test": "",
     "study_destination": "UK",
     "course": "PGCE",
@@ -6197,7 +6197,7 @@
     "course": "Bachelors in Education",
     "intake": "September Intake 2025",
     "funding_method": "",
-    "fund_amount": "300,000",
+    "fund_amount": "[AMOUNT_REDACTED]",
     "assessment_notes": "",
     "data_quality_flag": "CHECK",
     "extraction_source": "html",
@@ -9005,7 +9005,7 @@
     "pii_issues": "",
     "extra_fields": {
       "Do you have any specific location preferences?": "No",
-      "Have you made any application to any universities yet?": "University Of Derby 16,600 GBP"
+      "Have you made any application to any universities yet?": "University Of Derby [AMOUNT_REDACTED] GBP"
     }
   },
   {
@@ -14349,7 +14349,7 @@
     "pii_issues": "",
     "extra_fields": {
       "Do you have any specific location preferences?": "No",
-      "Have you made any application to any universities yet?": "University Of Derby 16,600 GBP"
+      "Have you made any application to any universities yet?": "University Of Derby [AMOUNT_REDACTED] GBP"
     }
   },
   {
@@ -19661,7 +19661,7 @@
     "extra_fields": {
       "If the student has more than a 6-month study gap then ask - What have you been doing since the completion of your last studies?": "Certificate in Care Giving",
       "Do you have any specific location preferences?": "Oxford",
-      "Have you made any application to any universities yet?": "Hertfordshire Keele University 21,000 Dundee"
+      "Have you made any application to any universities yet?": "Hertfordshire Keele University [AMOUNT_REDACTED] Dundee"
     }
   },
   {

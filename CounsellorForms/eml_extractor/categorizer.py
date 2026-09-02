@@ -110,7 +110,10 @@ def build_record(
     if "counsellor_id" not in seen:
         m = re.search(r"-\s*([A-Za-z]+)\s*-\s*(Cold|Good|Excellent)", subject)
         if m:
-            seen["counsellor_id"] = m.group(1)
+            # The value captured by the subject regex is the counsellor's name,
+            # which is PII. Redact it immediately (it is not a system ID) rather
+            # than relying on the name-list in pii.py to recognise it later.
+            seen["counsellor_id"] = "[NAME_REDACTED]" if replace_names else m.group(1)
             if "rating" not in seen:
                 seen["rating"] = m.group(2)
 
@@ -143,11 +146,23 @@ def build_record(
             rec.assessment_notes = value
         elif key == "counsellor_id":
             rec.counsellor_id = value or "[COUNSELLOR_ID]"
+            if (
+                replace_names
+                and "REDACTED" not in rec.counsellor_id
+                and "COUNSELLOR_ID" not in rec.counsellor_id
+            ):
+                # A bare person identifier (name/username) is PII - redact it.
+                rec.counsellor_id = "[NAME_REDACTED]"
 
-    # Post-process: redact names in counsellor_id.
-    if rec.counsellor_id and "REDACTED" not in rec.counsellor_id:
-        redacted = redact_pii(rec.counsellor_id, replace_names=replace_names)
-        rec.counsellor_id = redacted or "[COUNSELLOR_ID]"
+    # Post-process: counsellor identity must never remain in the record when
+    # names are being redacted (the pii name-list only covers known names).
+    if (
+        replace_names
+        and rec.counsellor_id
+        and "REDACTED" not in rec.counsellor_id
+        and "COUNSELLOR_ID" not in rec.counsellor_id
+    ):
+        rec.counsellor_id = "[NAME_REDACTED]"
 
     # Quality flag.
     flag = "CLEAN"

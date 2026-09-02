@@ -1,0 +1,19 @@
+{
+    "jobs": [
+        {
+            "institution": "aston_university",
+            "data_type": "courses",
+            "force_js": false
+        },
+        {
+            "institution": "oxford_university",
+            "data_type": "accommodation",
+            "force_html": true
+        },
+        {
+            "institution": "cambridge_university",
+            "data_type": "courses",
+            "force_js": true
+        }
+    ]
+}

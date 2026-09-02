@@ -10,18 +10,24 @@ installs are required.
 ## Directory layout
 
 ```
-CounsellorForms/
-├── Forms/                         # Source .eml files (Assessment Forms *, Own(Bunch*))
-├── eml_extractor/
-│   ├── parser.py                  # .eml parsing + HTML/plain field extraction
-│   ├── categorizer.py             # Question->standard-category mapping + record build
-│   ├── pii.py                     # PII regex patterns + redaction helpers
-│   ├── pipeline.py                # Orchestration (process, validate, export)
-│   └── models.py                  # AssessmentRecord dataclass
-├── extract_assessment_forms.py    # CLI entry point
-├── output/                        # Cleaned CSV + JSON exports
-└── PII_Removal_Checklist.txt      # Manual verification checklist
+<repo>/Scrapper/CounsellorForms/          # inside the git repository
+├── eml_extractor/                       # extraction package (stdlib-only)
+│   ├── parser.py                        # .eml parsing + HTML/plain field extraction
+│   ├── categorizer.py                   # Question->standard-category mapping + record build
+│   ├── pii.py                           # PII regex patterns + redaction helpers
+│   ├── pipeline.py                      # Orchestration (process, validate, export)
+│   └── models.py                        # AssessmentRecord dataclass
+├── extract_assessment_forms.py          # CLI entry point
+├── output/                              # Cleaned CSV + JSON exports (committed corpus)
+└── PII_Removal_Checklist.txt            # Manual verification checklist
+
+<repo>/../CounsellorForms/Forms/         # OUTSIDE the repo: raw .eml source files
 ```
+
+> ⚠️ **Data location.** The raw `.eml` files contain PII and are intentionally
+> kept *outside* the git repository (typically at `../CounsellorForms/Forms/`
+> relative to the repo root). `extract_assessment_forms.py` auto-locates the
+> `Forms/` directory beside the repo; if yours lives elsewhere, pass `--forms DIR`.
 
 ## Usage
 
@@ -31,7 +37,7 @@ python extract_assessment_forms.py
 
 Options:
 
-- `--forms DIR` root directory containing `.eml` files (default: `Forms/`)
+- `--forms DIR` root directory containing `.eml` files (default: auto-located — see *Data location* above)
 - `--out DIR` output directory (default: `output/`)
 - `--keep-names` keep counsellor names (NOT recommended; PII)
 

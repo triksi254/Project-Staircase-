@@ -81,12 +81,12 @@ The `SmartScraper.resolve_scraper()` decides which scraper to use in this order:
 ## FAQIntegrator Details
 
 - Loads `data/faq_corpus.json` (list of `{question, answer, keywords}`).
-- Computes a hybrid relevance score:
-  - 45% question-token overlap (Jaccard)
-  - 25% keyword-token coverage
-  - 20% character-level SequenceMatcher vs question
-  - 10% character-level SequenceMatcher vs answer
-- Retains top-k FAQs above `FAQ_RELEVANCE_THRESHOLD` (default 0.30).
+- Computes a hybrid relevance score (see `faq_integrator.py`):
+  - 45% keyword coverage (fraction of the FAQ's configured keywords found in the record)
+  - 25% question-token overlap
+  - 15% answer-token overlap
+  - 15% character-level SequenceMatcher similarity to the question
+- Retains top-k FAQs above `FAQ_RELEVANCE_THRESHOLD` (default 0.10).
 
 ## Storage Details
 

@@ -39,8 +39,10 @@ JS_INDICATORS = {
         r"chunk-vendors",
     ],
     "sparse_content": [
+        # NOTE: HTML comments (`<!-- ... -->`) are intentionally NOT treated as
+        # a JS indicator - they are common in server-rendered templates too, so
+        # they are a weak and misleading signal.
         r"<noscript>",
-        r"<!--",
     ],
 }
 
@@ -90,6 +92,11 @@ class SmartScraper:
     # ------------------------------------------------------------------ #
     def scrape(self, url: Optional[str] = None) -> List[dict]:
         """Scrape the institution/data-type, choosing the best scraper."""
+        if self.scraper is not None:
+            # Close any scraper created by an earlier call (avoids leaking a
+            # Playwright browser when scrape() is invoked more than once).
+            self.scraper.close()
+            self.scraper = None
         resolved = self.resolve_scraper(url)
         logger.info(
             "Using {} scraper for {}/{} (force_html={}, force_js={})",

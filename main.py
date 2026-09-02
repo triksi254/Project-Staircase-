@@ -109,17 +109,17 @@ def run_job(
     logger.info("Job: {} / {}", institution, data_type)
     logger.info("=" * 80)
 
-    # 1. Scrape
-    scraper = SmartScraper(
+    # 1. Scrape (context manager ensures the Playwright browser is closed)
+    with SmartScraper(
         institution,
         data_type,
         force_html=force_html,
         force_js=force_js,
         delay=delay,
         max_pages=max_pages,
-    )
-    raw_items = scraper.scrape()
-    metadata = scraper.metadata.to_dict()
+    ) as scraper:
+        raw_items = scraper.scrape()
+        metadata = scraper.metadata.to_dict()
 
     # 2. Save raw data
     raw_path = JSONExporter.export(

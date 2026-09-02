@@ -208,7 +208,7 @@ class DatabaseStorage:
                 f"""CREATE TABLE IF NOT EXISTS "{table}" (
                     id SERIAL PRIMARY KEY,
                     title TEXT NOT NULL,
-                    url TEXT,
+                    url TEXT UNIQUE,
                     description TEXT,
                     institution TEXT,
                     data_type TEXT,
@@ -222,7 +222,7 @@ class DatabaseStorage:
                 f"""CREATE TABLE IF NOT EXISTS "{table}" (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
-                    url TEXT,
+                    url TEXT UNIQUE,
                     description TEXT,
                     institution TEXT,
                     data_type TEXT,
@@ -260,7 +260,7 @@ class DatabaseStorage:
                     f"""INSERT INTO "{table}"
                         (title, url, description, institution, data_type, scraped_at, related_faqs, extra)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT DO NOTHING""",
+                        ON CONFLICT (url) DO NOTHING""",
                     (
                         item.get("title"),
                         item.get("url"),
@@ -274,7 +274,7 @@ class DatabaseStorage:
                 )
             else:
                 cursor.execute(
-                    f"""INSERT INTO "{table}"
+                    f"""INSERT OR IGNORE INTO "{table}"
                         (title, url, description, institution, data_type, scraped_at, related_faqs, extra)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (

@@ -4,7 +4,7 @@ Usage:
     python extract_assessment_forms.py [--forms DIR] [--out DIR] [--keep-names]
 
 Defaults:
-    --forms  Forms/          (relative to this script)
+    --forms  auto-located beside the repo (e.g. ../CounsellorForms/Forms)
     --out    output/         (relative to this script)
 """
 
@@ -17,6 +17,26 @@ from pathlib import Path
 from eml_extractor.pipeline import run_pipeline
 
 
+def _default_forms_root(base: Path) -> Path:
+    """Locate the counsellor-form data directory.
+
+    The raw ``.eml`` files contain PII and are intentionally kept OUT of the
+    git repository, so the code and the data live in different places.
+    Candidates are checked in order:
+
+      1. ``<this script>/Forms``                  - data placed inside the repo
+      2. ``<repo root>/../CounsellorForms/Forms`` - data beside the repo
+
+    Returns the first candidate that exists, otherwise the first candidate so
+    that ``main()`` can emit a clear "not found" message.
+    """
+    candidates = [base / "Forms", base.parent.parent / "CounsellorForms" / "Forms"]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Extract & clean Jotform assessment data from .eml files."
@@ -25,8 +45,9 @@ def main(argv: Optional[list] = None) -> int:
     parser.add_argument(
         "--forms",
         type=Path,
-        default=base / "Forms",
-        help="Root directory containing .eml files (default: Forms/)",
+        default=_default_forms_root(base),
+        help="Root directory containing .eml files "
+        "(default: auto-located beside the repo, e.g. ../CounsellorForms/Forms)",
     )
     parser.add_argument(
         "--out",
@@ -43,6 +64,11 @@ def main(argv: Optional[list] = None) -> int:
 
     if not args.forms.exists():
         print(f"Forms directory not found: {args.forms}", file=sys.stderr)
+        print(
+            "Point --forms at your .eml data, or place the Jotform .eml files under "
+            "CounsellorForms/Forms/.",
+            file=sys.stderr,
+        )
         return 2
 
     summary = run_pipeline(

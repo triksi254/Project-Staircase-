@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
-import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -11,64 +11,25 @@ from typing import Dict, List, Optional
 import logging
 logging.getLogger("playwright").setLevel(logging.WARNING)
 
-PROCESSED_DIR = Path("data/processed")
+# Ensure project root on sys.path when running from elsewhere
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from processors.requirements_extractor import extract_requirements  # noqa: E402
+from scrapers.page_interaction import click_accordions, launch_browser  # noqa: E402
+
+PROCESSED_DIR = PROJECT_ROOT / "data/processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-def extract_requirements(text: str) -> Dict[str, Optional[str]]:
-    """Extract key requirement fields from body text."""
-    result = {
-        "postgraduate_entry_requirement": None,
-        "english_language_requirement": None,
-        "bachelor_degree_requirement": None,
-        "foundation_requirement": None,
-        "scholarship_info": None,
-        "contact_info": None,
-    }
-    lines = text.split("\n")
-    full_text = " ".join(line.strip() for line in lines if line.strip())
-
-    pg_patterns = [
-        r"(?i)(?:postgraduate|post-graduate|masters|master\'s|msc|ma\b|mba|meng).{0,300}(?:bachelor|degree|honours|second class|upper|lower|2:?[12]|2\.\s*[12])",
-        r"(?i)(?:bachelor|degree|honours).{0,200}(?:second class|upper|lower|2:?[12]|2\.\s*[12]).{0,200}(?:postgraduate|post-graduate|masters)",
-    ]
-    for pat in pg_patterns:
-        m = re.search(pat, full_text)
-        if m:
-            result["postgraduate_entry_requirement"] = m.group(0)[:1000].strip()
-            break
-
-    bach_pat = r"(?i)(?:bachelor|degree|honours).{0,300}(?:second class|upper|lower|2:?[12]|2\.\s*[12]|first class|gpa|grade|recognis)"
-    m = re.search(bach_pat, full_text)
-    if m:
-        result["bachelor_degree_requirement"] = m.group(0)[:800].strip()
-
-    eng_pat = r"(?i)(?:english|ielts|toefl|language).{0,200}(?:requirement|grade|score|level|band|min).{0,300}"
-    m = re.search(eng_pat, full_text)
-    if m:
-        result["english_language_requirement"] = m.group(0)[:800].strip()
-    found_pat = r"(?i)(?:foundation|foundation year|international foundation).{0,300}(?:year|study|kcse|grade|subject)"
-    m = re.search(found_pat, full_text)
-    if m:
-        result["foundation_requirement"] = m.group(0)[:600].strip()
-    schol_pat = r"(?i)(?:scholarship|bursary|funding|award).{0,200}(?:international|available|offer|amount)"
-    m = re.search(schol_pat, full_text)
-    if m:
-        result["scholarship_info"] = m.group(0)[:500].strip()
-    contact_pat = r"(?i)(?:contact|email|phone|regional manager|representative).{0,200}(?:@|\.com|\.ac|whatsapp|\+[0-9])"
-    m = re.search(contact_pat, full_text)
-    if m:
-        result["contact_info"] = m.group(0)[:400].strip()
-    return result
+# NOTE: extract_requirements now lives in processors.requirements_extractor
 
 
 def scrape_salford() -> Optional[Dict]:
     """Salford: Kenya page with Entry Requirements accordion clicking."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
-        ctx = b.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0",
-                            viewport={"width": 1366, "height": 900})
-        page = ctx.new_page()
+        b, ctx, page = launch_browser(p)
         try:
             resp = page.goto("https://www.salford.ac.uk/international/your-country-or-region/kenya",
                              timeout=45000, wait_until="domcontentloaded")
@@ -88,17 +49,7 @@ def scrape_salford() -> Optional[Dict]:
                     pass
 
             # Click all accordion buttons
-            for sel in ["button[aria-expanded]", ".accordion-trigger", "button.collapsed",
-                        "button[data-bs-toggle='collapse']", "details summary", ".accordion-item button"]:
-                btns = page.query_selector_all(sel)
-                for btn in btns:
-                    try:
-                        expanded = btn.get_attribute("aria-expanded")
-                        if expanded == "false" or expanded is None:
-                            btn.click()
-                            page.wait_for_timeout(500)
-                    except Exception:
-                        pass
+            click_accordions(page)
 
             page.wait_for_timeout(2000)
             body = page.inner_text("body")
@@ -122,10 +73,7 @@ def scrape_southwales() -> Optional[Dict]:
     """South Wales: Kenya page with detailed extraction."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
-        ctx = b.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0",
-                            viewport={"width": 1366, "height": 900})
-        page = ctx.new_page()
+        b, ctx, page = launch_browser(p)
         try:
             # First try the Kenya page directly
             resp = page.goto("https://www.southwales.ac.uk/international/your-country/kenya/",
@@ -171,10 +119,7 @@ def scrape_bucks() -> Optional[Dict]:
     """Bucks: try to get Kenya-specific info from the Your Country page."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
-        ctx = b.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0",
-                            viewport={"width": 1366, "height": 900})
-        page = ctx.new_page()
+        b, ctx, page = launch_browser(p)
         try:
             # Try the International page with longer timeout
             resp = page.goto("https://www.bucks.ac.uk/study/international/your-country",
@@ -225,26 +170,14 @@ def scrape_hertfordshire() -> Optional[Dict]:
     """Hertfordshire: try to find Kenya-specific entry requirements."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
-        ctx = b.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0",
-                            viewport={"width": 1366, "height": 900})
-        page = ctx.new_page()
+        b, ctx, page = launch_browser(p)
         try:
             resp = page.goto("https://www.herts.ac.uk/international/apply/application-requirements",
                              timeout=60000, wait_until="domcontentloaded")
             if resp and resp.status < 400:
                 page.wait_for_timeout(8000)
                 # Try accordion clicks
-                for sel in ["button[aria-expanded]", "button.collapsed", "button[data-bs-toggle='collapse']", ".accordion-item button"]:
-                    btns = page.query_selector_all(sel)
-                    for btn in btns:
-                        try:
-                            expanded = btn.get_attribute("aria-expanded")
-                            if expanded == "false" or expanded is None:
-                                btn.click()
-                                page.wait_for_timeout(500)
-                        except Exception:
-                            pass
+                click_accordions(page)
                 page.wait_for_timeout(2000)
                 body = page.inner_text("body")
                 if len(body) > 200:
