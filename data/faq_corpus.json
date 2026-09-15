@@ -1227,6 +1227,90 @@
                 "services",
                 "who"
             ]
+        },
+        {
+            "question": "What do my tuition fees cover at BCU?",
+            "answer": "Your annual tuition fees cover everyday tuition, examination costs and membership of the Students' Union; they do not cover textbooks and other course materials.",
+            "keywords": [
+                "tuition",
+                "fees",
+                "cover",
+                "bcu",
+                "your",
+                "annual",
+                "everyday",
+                "examination"
+            ]
+        },
+        {
+            "question": "How do I find the tuition fee for my BCU course?",
+            "answer": "Search BCU's course pages and check the 'Fees and How to Apply' tab of the course you want to study; overseas students pay the higher 'overseas' tuition fee.",
+            "keywords": [
+                "find",
+                "tuition",
+                "fee",
+                "bcu",
+                "course",
+                "search",
+                "s",
+                "pages"
+            ]
+        },
+        {
+            "question": "Does BCU offer undergraduate and postgraduate scholarships?",
+            "answer": "Yes - BCU runs undergraduate and postgraduate scholarship schemes for international students.",
+            "keywords": [
+                "undergraduate",
+                "postgraduate",
+                "scholarship",
+                "bcu",
+                "offer",
+                "scholarships",
+                "-",
+                "runs"
+            ]
+        },
+        {
+            "question": "Does a Kenyan student need a visa to study at USW in the UK?",
+            "answer": "If you are an international student or a student from the European Economic Area and you do not hold EU Settled Status or EU Pre-Settled Status, you will need a visa to study in the UK.",
+            "keywords": [
+                "visa",
+                "kenyan",
+                "student",
+                "study",
+                "usw",
+                "uk",
+                "international",
+                "european"
+            ]
+        },
+        {
+            "question": "Where can I find USW's step-by-step student visa guide?",
+            "answer": "See USW's 'VISAS AND ARRIVAL: Our advice on making your visa application, arriving in the UK, and working whilst studying' — it includes a step-by-step guide to making a student visa application and credibility-interview preparation.",
+            "keywords": [
+                "visa",
+                "where",
+                "find",
+                "usw",
+                "s",
+                "step-by-step",
+                "student",
+                "guide"
+            ]
+        },
+        {
+            "question": "What are Hertfordshire's international application requirements?",
+            "answer": "To apply to Hertfordshire you must meet our international entry requirements, submit your supporting documents and follow the step-by-step application guidance on the international apply pages.",
+            "keywords": [
+                "hertfordshire",
+                "s",
+                "international",
+                "application",
+                "requirements",
+                "must",
+                "meet",
+                "our"
+            ]
         }
     ]
 }
