@@ -290,6 +290,300 @@
                 "financial aid",
                 "kenya students"
             ]
+        },
+        {
+            "question": "What KCSE English grade do I need for Aston University?",
+            "answer": "For entry onto an undergraduate or postgraduate taught degree, a minimum Grade of C is acceptable from English Language in the Kenya Certificate of Secondary Education (KCSE). For the MBChB medicine course, you need a minimum of Grade B in English.",
+            "keywords": [
+                "kcse",
+                "undergraduate",
+                "postgraduate",
+                "english",
+                "grade",
+                "aston",
+                "university",
+                "onto"
+            ]
+        },
+        {
+            "question": "I finished KCSE and want to do a foundation year - what do I need?",
+            "answer": "For the International Foundation Year you need 12 years of study and an average of five subjects at grade C and above in KCSE, and the subjects must include the relevant subjects for your course.",
+            "keywords": [
+                "kcse",
+                "foundation",
+                "12",
+                "finished",
+                "want",
+                "year",
+                "-",
+                "international"
+            ]
+        },
+        {
+            "question": "What do I need to get onto a Masters at Aston from Kenya?",
+            "answer": "You need a recognised Bachelor's honours second class (upper) degree. Aston can also consider a second class (lower) degree for some courses on a case-by-case basis if you have relevant industry experience.",
+            "keywords": [
+                "masters",
+                "onto",
+                "aston",
+                "kenya",
+                "recognised",
+                "bachelor",
+                "s",
+                "honours"
+            ]
+        },
+        {
+            "question": "I got a second class lower degree but I have work experience - can I still do a Masters?",
+            "answer": "Yes, possibly. Aston can consider a Bachelor's honours second class (lower) degree for some courses on a case-by-case basis, especially if you have relevant industry experience.",
+            "keywords": [
+                "masters",
+                "got",
+                "second",
+                "class",
+                "lower",
+                "degree",
+                "but",
+                "have"
+            ]
+        },
+        {
+            "question": "Can I combine two scholarships at Aston?",
+            "answer": "No. Aston scholarships cannot be combined - you are awarded the highest value scholarship available to you.",
+            "keywords": [
+                "scholarship",
+                "combine",
+                "two",
+                "scholarships",
+                "aston",
+                "no.",
+                "cannot",
+                "be"
+            ]
+        },
+        {
+            "question": "What study background do I need for undergraduate entry at Aston?",
+            "answer": "You need 13 years of study, or 12 years plus a Diploma, a recognised Foundation programme, Cambridge A-Level, International Baccalaureate, BTech or HND.",
+            "keywords": [
+                "undergraduate",
+                "13",
+                "12",
+                "foundation",
+                "study",
+                "background",
+                "aston",
+                "years"
+            ]
+        },
+        {
+            "question": "How much is the postgraduate scholarship at BCU and who can get it?",
+            "answer": "BCU is offering a scholarship of £3,000 to self-funding international postgraduate students joining on a full-time postgraduate taught Master's degree. It is applied as a tuition fee discount.",
+            "keywords": [
+                "postgraduate",
+                "scholarship",
+                "3",
+                "000",
+                "bcu",
+                "who",
+                "offering",
+                "self-funding"
+            ]
+        },
+        {
+            "question": "Is there an undergraduate scholarship at BCU?",
+            "answer": "Yes, BCU is offering a scholarship of £5,000 to self-funding international undergraduate students.",
+            "keywords": [
+                "undergraduate",
+                "scholarship",
+                "5",
+                "000",
+                "bcu",
+                "offering",
+                "self-funding",
+                "international"
+            ]
+        },
+        {
+            "question": "Do I need IELTS if I did KCSE English?",
+            "answer": "BCU accepts the Kenya Certificate of Secondary Education (KCSE) as evidence of English language. Check the individual scores required and the full list of accepted English qualifications on BCU's accepted qualifications and English tests page.",
+            "keywords": [
+                "ielts",
+                "kcse",
+                "did",
+                "english",
+                "bcu",
+                "accepts",
+                "kenya",
+                "certificate"
+            ]
+        },
+        {
+            "question": "What IELTS score do most BCU courses require?",
+            "answer": "Most courses require IELTS 6.0 overall with no less than 5.5 in each band, or equivalent, but some courses do have a higher requirement - check the individual course page.",
+            "keywords": [
+                "ielts",
+                "6.0",
+                "5.5",
+                "score",
+                "most",
+                "bcu",
+                "courses",
+                "require"
+            ]
+        },
+        {
+            "question": "I only have a KCSE certificate - can I apply for undergraduate entry at BCU?",
+            "answer": "Yes, BCU accepts students who hold a KCSE certificate for undergraduate entry.",
+            "keywords": [
+                "kcse",
+                "undergraduate",
+                "only",
+                "have",
+                "certificate",
+                "-",
+                "bcu",
+                "accepts"
+            ]
+        },
+        {
+            "question": "What class of degree do I need for a Masters at RGU from Kenya?",
+            "answer": "You need a 4-year degree with a minimum of a second class lower classification with 50% or Grade C, or a Credit. A small number of postgraduate programmes do require a minimum of second class upper classification - refer to the relevant course page.",
+            "keywords": [
+                "masters",
+                "4-year",
+                "50",
+                "postgraduate",
+                "class",
+                "degree",
+                "rgu",
+                "kenya"
+            ]
+        },
+        {
+            "question": "I got 50% in my degree - am I eligible for a Masters at RGU?",
+            "answer": "Yes for most programmes. A 4-year degree with a minimum of a second class lower classification (50% or Grade C, or a Credit) meets the postgraduate requirement, although a small number of programmes need a second class upper instead.",
+            "keywords": [
+                "50",
+                "masters",
+                "4-year",
+                "postgraduate",
+                "got",
+                "degree",
+                "-",
+                "eligible"
+            ]
+        },
+        {
+            "question": "What IELTS score do I need for postgraduate study at RGU?",
+            "answer": "Postgraduate courses at RGU require IELTS 6.5 with 6.0 in each area. Some courses require a higher score, so always check the course page.",
+            "keywords": [
+                "ielts",
+                "postgraduate",
+                "6.5",
+                "6.0",
+                "score",
+                "study",
+                "rgu",
+                "courses"
+            ]
+        },
+        {
+            "question": "I got a C in KCSE English - is that enough for RGU?",
+            "answer": "For most courses, yes. RGU accepts KCSE English at grade C as the equivalent to an IELTS 6.5/6.0. Some courses have exceptions - check the English language requirements page.",
+            "keywords": [
+                "kcse",
+                "ielts",
+                "6.5",
+                "6.0.",
+                "got",
+                "c",
+                "english",
+                "-"
+            ]
+        },
+        {
+            "question": "What IELTS score do undergraduate courses at RGU need?",
+            "answer": "Most undergraduate courses require an IELTS score of 6.0, with a minimum of 5.5 in each area.",
+            "keywords": [
+                "ielts",
+                "undergraduate",
+                "6.0",
+                "5.5",
+                "score",
+                "courses",
+                "rgu",
+                "most"
+            ]
+        },
+        {
+            "question": "What KCSE grades do I need for a foundation year at UCLan?",
+            "answer": "For the foundation year you need Kenya Certificate of Secondary Education (KCSE) Grade B average in 5 or more subjects.",
+            "keywords": [
+                "kcse",
+                "foundation",
+                "5",
+                "grades",
+                "year",
+                "uclan",
+                "kenya",
+                "certificate"
+            ]
+        },
+        {
+            "question": "I have a Kenya Diploma - can I start in Year 1 at UCLan?",
+            "answer": "Yes. A Kenya Diploma awarded by the Kenya National Examinations Council with a grade of 60% or above meets the Undergraduate (Year 1) entry requirement.",
+            "keywords": [
+                "1",
+                "60",
+                "undergraduate",
+                "have",
+                "kenya",
+                "diploma",
+                "-",
+                "start"
+            ]
+        },
+        {
+            "question": "What do I need for a Masters at UCLan from Kenya?",
+            "answer": "You need a minimum 2:2 in a bachelor degree from a recognised institution in a relevant subject.",
+            "keywords": [
+                "masters",
+                "2",
+                "uclan",
+                "kenya",
+                "minimum",
+                "bachelor",
+                "degree",
+                "recognised"
+            ]
+        },
+        {
+            "question": "What IELTS score does UCLan require?",
+            "answer": "The standard English language entry requirement is IELTS 6.0 with no component score lower than 5.5, or equivalent.",
+            "keywords": [
+                "ielts",
+                "6.0",
+                "5.5",
+                "score",
+                "uclan",
+                "require",
+                "standard",
+                "english"
+            ]
+        },
+        {
+            "question": "My degree is a 2:2 but not in the same subject as the Masters I want - can I apply?",
+            "answer": "The postgraduate requirement at UCLan is a minimum 2:2 in a bachelor degree from a recognised institution in a relevant subject, so the degree subject needs to be relevant to the course you want to study.",
+            "keywords": [
+                "2",
+                "masters",
+                "postgraduate",
+                "degree",
+                "but",
+                "same",
+                "subject",
+                "as"
+            ]
         }
     ]
 }
