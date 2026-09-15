@@ -159,6 +159,9 @@ Scrapper/
 ├── faq/
 │   └── faq_integrator.py        # FAQ cross-reference
 │
+├── leads/
+│   └── features.py              # Lead-scoring behavioural feature extraction
+│
 ├── CounsellorForms/             # EML assessment-form extraction (see its README)
 ├── scratch/                     # One-off exploration scripts (gitignored)
 │
