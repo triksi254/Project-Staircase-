@@ -1087,6 +1087,146 @@
                 "see",
                 "s"
             ]
+        },
+        {
+            "question": "How much is Aston University accommodation per week?",
+            "answer": "All campus accommodation is provided with Unite Students. Undergraduate ensuite rooms start at £172.20 per week, postgraduate ensuite at £130 per week, exchange students at £172.50 per week, and returning students' rooms from £160 per week.",
+            "keywords": [
+                "undergraduate",
+                "172.20",
+                "postgraduate",
+                "130",
+                "172.50",
+                "160",
+                "aston",
+                "university"
+            ]
+        },
+        {
+            "question": "Is there an upfront payment for Aston accommodation?",
+            "answer": "Yes - an advance payment of £250 is required when you accept your Unite Students accommodation.",
+            "keywords": [
+                "250",
+                "upfront",
+                "payment",
+                "aston",
+                "accommodation",
+                "-",
+                "advance",
+                "required"
+            ]
+        },
+        {
+            "question": "Do I have to pay rent before moving into Aston accommodation?",
+            "answer": "Your first instalment must be paid before check-in; if you are waiting for a Student Maintenance Loan payment it can cover your first instalment.",
+            "keywords": [
+                "have",
+                "pay",
+                "rent",
+                "before",
+                "moving",
+                "into",
+                "aston",
+                "accommodation"
+            ]
+        },
+        {
+            "question": "Are there any discounts on Aston accommodation?",
+            "answer": "Aston offers a 20% discount on all rooms from January 2026, with rooms available from January and April 2026 for new and existing students.",
+            "keywords": [
+                "20",
+                "2026",
+                "any",
+                "discounts",
+                "aston",
+                "accommodation",
+                "offers",
+                "discount"
+            ]
+        },
+        {
+            "question": "Can I cancel my Aston accommodation if my UK visa is refused?",
+            "answer": "Under Aston's 'No Visa No Pay' policy, if you don't get your visa to come to your course you can cancel your Tenancy Agreement and have your deposit and advance rent refunded in full; this option is not available after 31 August before the tenancy starts.",
+            "keywords": [
+                "visa",
+                "31",
+                "cancel",
+                "aston",
+                "accommodation",
+                "uk",
+                "refused",
+                "under"
+            ]
+        },
+        {
+            "question": "When will I be invoiced for my Aston tuition fees?",
+            "answer": "You will receive an invoice once you are formally enrolled, and you are set up to pay by instalments - 50% of your tuition fees by 31 October and 25% in Term 3 by online card instalments.",
+            "keywords": [
+                "50",
+                "31",
+                "25",
+                "3",
+                "when",
+                "will",
+                "be",
+                "invoiced"
+            ]
+        },
+        {
+            "question": "How do I pay my Aston tuition fees?",
+            "answer": "Pay online via Aston's tuition payment service ('Pay now - Make an online tuition payment'), or apply for a Tuition Fee Loan through Student Finance England.",
+            "keywords": [
+                "pay",
+                "aston",
+                "tuition",
+                "fees",
+                "online",
+                "via",
+                "s",
+                "payment"
+            ]
+        },
+        {
+            "question": "What happens if I pay my Aston tuition fees late?",
+            "answer": "Late payment can incur tuition fee sanctions, for example the withdrawal of library and computer facilities; see the University Tuition Fee Policy for full details.",
+            "keywords": [
+                "happens",
+                "pay",
+                "aston",
+                "tuition",
+                "fees",
+                "late",
+                "payment",
+                "incur"
+            ]
+        },
+        {
+            "question": "Does Aston offer bursaries, grants or tuition fee loans?",
+            "answer": "Aston's Fees and Finance pages include a Grants, Bursaries and Scholarships section with information about tuition fee loans.",
+            "keywords": [
+                "aston",
+                "offer",
+                "bursaries",
+                "grants",
+                "tuition",
+                "fee",
+                "loans",
+                "s"
+            ]
+        },
+        {
+            "question": "How much are my Aston tuition fees?",
+            "answer": "The tuition fees are calculated by Academic Services, who can confirm the charge for your course; see your course offer letter and the Tuition Fee Policy for the exact amount.",
+            "keywords": [
+                "aston",
+                "tuition",
+                "fees",
+                "calculated",
+                "by",
+                "academic",
+                "services",
+                "who"
+            ]
         }
     ]
 }
