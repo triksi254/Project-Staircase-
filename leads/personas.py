@@ -15,8 +15,23 @@ persona-authored behavioural signals.
 
 Deterministic given seed (stdlib random.Random only).
 
+Two generators:
+  * ``v1`` (default, legacy): labels come from the persona name (= rubric).
+  * ``v2`` (opt-in, ``--generator v2``): inverted generator that fits
+    ``P(counsellor_label | features)`` on the labelled real rows with a
+    RandomForest, bootstraps a real profile, samples the label from
+    ``predict_proba`` (not argmax) and then samples engagement conditioned on
+    that label. Engagement features are excluded from the label model. This
+    fixes the negative augmentation delta documented in ``leads/RESULTS.md``
+    (v1 labels only agreed with the counsellor labels ~7% of the time).
+    v2 is leakage-safe by default (``--bootstrap-pool train``): the label model
+    is fit on, and synthesis bootstraps from, an 80/20 stratified *train* split
+    of the labelled real rows only, so a real holdout drawn by the same split
+    is never seen by the generator.
+
 Usage:
     python -m leads.personas --n 1000 --seed 42 --out data/processed
+    python -m leads.personas --n 1000 --seed 42 --generator v2
 """
 from __future__ import annotations
 
@@ -228,6 +243,254 @@ def generate_sessions(n=1000, seed=42, priors=None):
     return sessions, meta
 
 
+# --------------------------------------------------------------------------- #
+# v2 -- inverted generator: sample labels from P(counsellor_label | features)
+# --------------------------------------------------------------------------- #
+# Rationale (leads/RESULTS.md, Finding 3): v1 labels come from the *persona*
+# name, i.e. the rubric. The real counsellor labels come from a different
+# labelling function (only ~7% agreement for the Cold class), so augmenting
+# with v1 made real-world macro F1 WORSE. v2 inverts the dependency:
+#
+#   1. fit P(counsellor_label | profile features) on the labelled real rows
+#      with a RandomForest (engagement features are excluded -- real leads
+#      have no engagement, so it would be a synthetic-only confound);
+#   2. bootstrap a real profile row;
+#   3. sample the label from ``predict_proba`` (NOT argmax), so the synthetic
+#      label follows the real labelling function rather than the rubric;
+#   4. sample engagement features conditioned on the sampled label.
+#
+# Deterministic given ``seed``: the seed drives the bootstrap RNG, the label
+# sampling and the RandomForest ``random_state``. v1 is untouched and remains
+# byte-identical for a given seed (use ``--generator v1``).
+GENERATORS = ("v1", "v2")
+
+#: Label id -> display name (inverse of PERSONA_LABELS).
+LABEL_NAMES = {v: k for k, v in PERSONA_LABELS.items()}
+
+#: Profile (non-engagement) fields carried over from a bootstrapped real row.
+PROFILE_FIELDS = [
+    "passport_status", "has_english_test", "english_band",
+    "funding_method_present", "funding_clarity", "destination_uk",
+    "has_course", "has_intake", "qual_level", "study_gap_mentioned",
+    "previous_application_mentioned", "note_word_count",
+]
+
+
+def _to_native(value):
+    """numpy / NaN scalar -> plain, JSON-friendly Python value."""
+    if value is None:
+        return 0
+    if isinstance(value, float) and math.isnan(value):
+        return 0.0
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except (ValueError, AttributeError):  # pragma: no cover - defensive
+            return value
+    if isinstance(value, float):
+        return round(value, 6)
+    return value
+
+
+def _prepare_real(frame):
+    """Clean a real feature frame: map labels, drop unrated, ensure columns.
+
+    Mirrors ``train_ml.align_schema`` but keeps the raw profile columns
+    (including ``english_band``) so bootstrapped rows can be emitted verbatim.
+    """
+    import numpy as np
+    import pandas as pd
+    from leads.train_ml import CATEGORICAL, LABEL_MAP, NUMERIC, TARGET, VALID_LABELS
+
+    if TARGET not in frame.columns:
+        raise ValueError("real frame has no %r column" % TARGET)
+    df = frame.copy()
+    if not pd.api.types.is_integer_dtype(df[TARGET]):
+        df[TARGET] = df[TARGET].map(
+            lambda v: LABEL_MAP.get(str(v).strip().title(), np.nan)
+            if not isinstance(v, (int, np.integer)) else v
+        )
+    df = df[df[TARGET].isin(VALID_LABELS)].copy()
+    df[TARGET] = df[TARGET].astype(int)
+    for col in list(CATEGORICAL) + list(NUMERIC) + PROFILE_FIELDS:
+        if col not in df.columns:
+            df[col] = np.nan
+    return df.reset_index(drop=True)
+
+
+class CounsellorLabelModel:
+    """RandomForest estimate of ``P(counsellor_label | profile features)``.
+
+    Fitted on the labelled real rows only. Engagement features are explicitly
+    excluded from the feature matrix, so the label model can never learn the
+    synthetic-only engagement confound documented in ``leads/RESULTS.md``.
+    """
+
+    def __init__(self, real_frame, n_estimators=500, random_state=42,
+                 class_weight="balanced"):
+        from sklearn.ensemble import RandomForestClassifier
+        from leads.train_ml import ENGAGEMENT, build_matrix
+
+        self.frame = _prepare_real(real_frame)
+        if self.frame.empty:
+            raise ValueError("no labelled real rows to fit the label model")
+        X, y, feats = build_matrix(self.frame, no_engagement=True)
+        for col in ENGAGEMENT:
+            if any(f == col or f.startswith(col + "_") for f in feats):
+                raise ValueError("engagement feature leaked into label model: %s" % col)
+        self.X = X.reset_index(drop=True)
+        self.feature_names = list(feats)
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators, class_weight=class_weight,
+            n_jobs=-1, random_state=random_state,
+        )
+        self.model.fit(self.X, y)
+        self.classes = [int(c) for c in self.model.classes_]
+        self.n_train = int(len(y))
+        #: Cached P(label | features) for every real row. Computed once in a
+        #: batch: single-row ``predict_proba`` calls are pathologically slow
+        #: because scikit-learn re-enters joblib for every call.
+        self._proba_cache = None
+        #: Optional positional row indices into ``self.frame`` that the v2
+        #: generator may bootstrap from. ``None`` = every fitted row. The
+        #: leakage-safe protocol fits this model on the train split only, so
+        #: its default pool already excludes the real holdout.
+        self.bootstrap_indices = None
+
+    def label_proba(self, row_index):
+        """``P(label | features)`` for a bootstrapped real row."""
+        if self._proba_cache is None:
+            self._proba_cache = self.model.predict_proba(self.X)
+        return [float(p) for p in self._proba_cache[row_index]]
+
+    def sample_label(self, row_index, rng):
+        """Draw the label from ``predict_proba`` -- deliberately not argmax."""
+        return int(rng.choices(self.classes, weights=self.label_proba(row_index))[0])
+
+    def source_row(self, row_index):
+        return self.frame.iloc[row_index]
+
+
+def generate_session_v2(session_id, rng, label_model):
+    """One v2 session: bootstrap a real profile, sample label, then behaviour.
+
+    The label is drawn from ``label_model.predict_proba`` on the bootstrapped
+    row (not argmax). Engagement features are then drawn from the same
+    persona-conditioned pools used by v1, but keyed on the *sampled counsellor
+    label* instead of the rubric persona.
+    """
+    n_rows = len(label_model.frame)
+    pool = getattr(label_model, "bootstrap_indices", None)
+    if pool is None:
+        pool = list(range(n_rows))
+    idx = int(pool[rng.randrange(len(pool))])
+    label = label_model.sample_label(idx, rng)
+    src = label_model.source_row(idx)
+    profile = {field: _to_native(src[field]) for field in PROFILE_FIELDS}
+    persona = LABEL_NAMES[label]
+    behaviour = _sample_behaviour(persona, rng)   # v1 helper, keyed by sampled label
+    cats = behaviour.pop("question_categories")
+    lead = score_row(profile)
+    session = {
+        "session_id": session_id,
+        "persona": persona,
+        "label": label,
+        "question_categories": cats,
+        "lead_score": lead.score,
+        "lead_label": lead.label,
+        "source_index": int(idx),
+        "source_label": int(src["label"]),
+    }
+    if "row_id" in src.index:
+        #: Global index into the full labelled real frame (set by the
+        #: leakage-safe split) -- lets callers assert the holdout is excluded.
+        session["source_row_id"] = int(_to_native(src["row_id"]))
+    session.update(profile)
+    session.update(behaviour)
+    return session
+
+
+def generate_sessions_v2(n=1000, seed=42, real_frame=None, label_model=None,
+                         priors=None, bootstrap_pool="train"):
+    """Deterministic inverted-generator corpus.
+
+    Parameters
+    ----------
+    real_frame : DataFrame, optional
+        Real feature rows (output of ``leads.features``). Loaded from
+        ``data/processed`` via ``train_ml.load_real`` when omitted.
+    label_model : CounsellorLabelModel, optional
+        Pre-fitted model; when supplied ``real_frame`` is ignored (used by the
+        tests and by ``leads.eval_augmentation`` so they need no on-disk data).
+        The bootstrap pool is then the model's own fitted frame.
+    priors : dict, optional
+        Accepted for CLI symmetry only -- v2 derives label frequencies from
+        the real conditional, so persona priors are ignored (recorded in meta).
+    bootstrap_pool : {"train", "all"}
+        ``"train"`` (default, leakage-safe): fit the label model on an 80/20
+        stratified train split (seed 42) of the labelled real rows and
+        bootstrap profiles from those train rows only, so a real holdout drawn
+        by the same split is never seen by the generator. ``"all"`` restores the
+        legacy behaviour (fit and bootstrap on every labelled row) and is
+        retained only to quantify the leak.
+    """
+    if n <= 0:
+        raise ValueError("n must be positive")
+    if bootstrap_pool not in ("train", "all"):
+        raise ValueError("bootstrap_pool must be 'train' or 'all'")
+    if label_model is None:
+        import numpy as np
+        from leads.train_ml import split_real_indices
+        if real_frame is None:
+            from leads.train_ml import load_real
+            real_frame = load_real()
+        frame = _prepare_real(real_frame)
+        if "row_id" not in frame.columns:
+            frame["row_id"] = np.arange(len(frame), dtype=int)
+        if bootstrap_pool == "train":
+            # Seed 42 (train_ml.RANDOM_STATE) fixes the protocol split.
+            train_idx, _ = split_real_indices(frame)
+            frame = frame.iloc[train_idx].reset_index(drop=True)
+        label_model = CounsellorLabelModel(frame, random_state=seed)
+    rng = random.Random(seed)
+    sessions = [
+        generate_session_v2("synth-%05d" % i, rng, label_model)
+        for i in range(n)
+    ]
+    label_counts = Counter(s["label"] for s in sessions)
+    meta = {
+        "generator": "v2",
+        "n": n,
+        "seed": seed,
+        "priors": priors,
+        "priors_ignored": priors is not None,
+        "label_counts": {
+            LABEL_NAMES[k]: int(label_counts.get(k, 0)) for k in LABEL_NAMES
+        },
+        "persona_counts": dict(Counter(s["persona"] for s in sessions)),
+        "bootstrap_pool": {
+            "mode": bootstrap_pool,
+            "n_rows": int(len(label_model.bootstrap_indices)
+                          if label_model.bootstrap_indices is not None
+                          else len(label_model.frame)),
+            "source_row_ids": sorted({int(s["source_row_id"])
+                                      for s in sessions
+                                      if "source_row_id" in s}),
+        },
+        "label_model": {
+            "type": "RandomForestClassifier",
+            "n_estimators": int(label_model.model.n_estimators),
+            "class_weight": str(label_model.model.class_weight),
+            "random_state": int(label_model.model.random_state),
+            "n_train": int(label_model.n_train),
+            "features": list(label_model.feature_names),
+            "excludes_engagement": True,
+        },
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    return sessions, meta
+
+
 def write_outputs(sessions, meta, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -255,6 +518,19 @@ def main(argv=None):
     parser.add_argument("--cold-frac", type=float, default=None)
     parser.add_argument("--warm-frac", type=float, default=None)
     parser.add_argument("--hot-frac", type=float, default=None)
+    parser.add_argument(
+        "--generator", choices=list(GENERATORS), default="v1",
+        help="v1 = legacy persona generator (default, byte-identical); "
+             "v2 = inverted generator sampling labels from "
+             "P(counsellor_label | features) fitted on the real rows",
+    )
+    parser.add_argument(
+        "--bootstrap-pool", choices=["train", "all"], default="train",
+        help="v2 only: 'train' (default) fits the label model and bootstraps "
+             "profiles from the labelled train split only (leakage-safe); "
+             "'all' uses every labelled row (legacy behaviour, leaks a real "
+             "holdout drawn from the same pool).",
+    )
     args = parser.parse_args(argv)
     priors = None
     if args.cold_frac is not None or args.warm_frac is not None \
@@ -264,6 +540,32 @@ def main(argv=None):
             "Warm": args.warm_frac or 0.0,
             "Hot": args.hot_frac or 0.0,
         }
+
+    if args.generator == "v2":
+        if priors is not None:
+            print("WARNING: --generator v2 ignores --cold/warm/hot-frac; "
+                  "labels are sampled from P(counsellor_label | features).",
+                  file=sys.stderr)
+        sessions, meta = generate_sessions_v2(
+            n=args.n, seed=args.seed, priors=priors,
+            bootstrap_pool=args.bootstrap_pool)
+        csv_path, json_path = write_outputs(sessions, meta, args.out)
+        print("=" * 70)
+        print("PERSONA SESSION SIMULATION v2 (inverted: real label function)")
+        print("=" * 70)
+        print("Sessions: %d (seed=%s)" % (len(sessions), meta["seed"]))
+        print("Labels:   %s" % (meta["label_counts"],))
+        lm = meta["label_model"]
+        print("Label model: %s(%d trees, n_train=%d, engagement excluded=%s)"
+              % (lm["type"], lm["n_estimators"], lm["n_train"],
+                 lm["excludes_engagement"]))
+        print("Bootstrap pool: %s (%d rows)"
+              % (meta["bootstrap_pool"]["mode"],
+                 meta["bootstrap_pool"]["n_rows"]))
+        print("Saved:  %s" % csv_path)
+        print("        %s" % json_path)
+        return 0
+
     sessions, meta = generate_sessions(n=args.n, seed=args.seed, priors=priors)
     csv_path, json_path = write_outputs(sessions, meta, args.out)
     print("=" * 70)

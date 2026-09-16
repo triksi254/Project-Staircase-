@@ -339,6 +339,25 @@ def experiment_combined(combined, ablate_english, model_kind, test_size=0.2,
     return model, metrics
 
 
+def split_real_indices(real_frame, test_size=0.2,
+                       random_state=RANDOM_STATE):
+    """Stratified positional ``(train_idx, holdout_idx)`` for real rows.
+
+    Indices are positional into ``real_frame``, which must carry integer
+    ``label`` values. Shared by :func:`experiment_generalization` and the
+    leakage-safe augmentation evaluation (``leads.eval_augmentation``) so the
+    two always use an *identical* split -- the real holdout seen at evaluation
+    time is exactly the set excluded from label-model fitting and from the v2
+    bootstrap pool.
+    """
+    y = real_frame[TARGET].to_numpy(dtype=int)
+    idx = np.arange(len(y))
+    train_idx, holdout_idx = train_test_split(
+        idx, test_size=test_size, stratify=y, random_state=random_state,
+    )
+    return train_idx, holdout_idx
+
+
 def experiment_generalization(combined, ablate_english, model_kind, test_size=0.2,
                               no_engagement=False):
     """Does synthetic augmentation improve performance on **real** leads?
@@ -356,10 +375,9 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
     # Align synthetic one-hot columns onto the real feature space
     X_syn = X_syn.reindex(columns=feats, fill_value=0.0)
 
-    X_rtr, X_rte, y_rtr, y_rte = train_test_split(
-        X_real, y_real, test_size=test_size, stratify=y_real,
-        random_state=RANDOM_STATE,
-    )
+    tr_idx, te_idx = split_real_indices(real, test_size=test_size)
+    X_rtr, X_rte = X_real.iloc[tr_idx], X_real.iloc[te_idx]
+    y_rtr, y_rte = y_real[tr_idx], y_real[te_idx]
 
     _, m_real = fit_and_eval(model_kind, X_rtr, y_rtr, X_rte, y_rte)
 
@@ -377,6 +395,8 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
         },
         "n_real_train": int(len(y_rtr)),
         "n_real_test": int(len(y_rte)),
+        "real_train_index": [int(i) for i in tr_idx],
+        "real_holdout_index": [int(i) for i in te_idx],
         "n_synthetic_added": int(len(y_syn)),
     }
 
