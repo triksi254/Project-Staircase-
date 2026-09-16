@@ -7,5 +7,6 @@ course/intake readiness, study gap, previous applications) plus the target
 label (Cold/Good/Excellent -> 0/1/2).
 
 The module is deliberately stdlib-only so it runs anywhere and stays testable;
-the ML training step (Random Forest / XGBoost) is a later, separate phase.
+the ML training step lives in ``leads.train_ml`` (scikit-learn / pandas) and is
+kept separate so the feature, rubric and persona stages stay dependency-free.
 """

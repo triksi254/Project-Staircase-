@@ -37,6 +37,11 @@ CounsellorForms/Forms/
 # One-off exploration scripts and dumped page text
 scratch/
 
+# Lead-scoring model artifacts (leads/train_ml.py). The trained binary is
+# regenerable, but the metrics/importance JSON files are kept as dissertation
+# appendix artifacts.
+artifacts/*.pkl
+
 # IDE / OS
 .vscode/
 .idea/

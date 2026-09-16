@@ -1,0 +1,238 @@
+{
+  "config": {
+    "no_synthetic": "False",
+    "ablate_english": "False",
+    "no_engagement": "True",
+    "tag": "_rf_noeng",
+    "model": "rf",
+    "cv": "5",
+    "cv_repeat": "2",
+    "data_dir": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\data\\processed",
+    "out": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\models"
+  },
+  "schema": {
+    "columns": [
+      "passport_status",
+      "qual_level",
+      "destination_uk",
+      "has_course",
+      "has_intake",
+      "study_gap_mentioned",
+      "previous_application_mentioned",
+      "funding_clarity",
+      "funding_method_present",
+      "has_english_test",
+      "note_word_count",
+      "message_count",
+      "avg_delay_s",
+      "question_category_entropy",
+      "visa_intent_mentioned",
+      "returning_session",
+      "session_word_count",
+      "label",
+      "source"
+    ],
+    "missing_expected": [],
+    "label_distribution": {
+      "Cold": 458,
+      "Warm": 857,
+      "Hot": 546
+    },
+    "source_counts": {
+      "synthetic": 1000,
+      "real": 861
+    }
+  },
+  "headline": {
+    "macro_f1": 0.6171941242242533,
+    "per_class": {
+      "Cold": {
+        "precision": 0.6548672566371682,
+        "recall": 0.8043478260869565,
+        "f1": 0.7219512195121951,
+        "support": 92
+      },
+      "Warm": {
+        "precision": 0.7469879518072289,
+        "recall": 0.36046511627906974,
+        "f1": 0.48627450980392156,
+        "support": 172
+      },
+      "Hot": {
+        "precision": 0.519774011299435,
+        "recall": 0.8440366972477065,
+        "f1": 0.6433566433566433,
+        "support": 109
+      }
+    },
+    "confusion_matrix": [
+      [
+        74,
+        8,
+        10
+      ],
+      [
+        35,
+        62,
+        75
+      ],
+      [
+        4,
+        13,
+        92
+      ]
+    ],
+    "n_train": 1488,
+    "n_test": 373,
+    "features": [
+      "funding_clarity",
+      "funding_method_present",
+      "has_english_test",
+      "note_word_count",
+      "passport_status_0",
+      "passport_status_1",
+      "passport_status_2",
+      "qual_level_0",
+      "qual_level_1",
+      "qual_level_2",
+      "qual_level_3",
+      "qual_level_4",
+      "qual_level_5",
+      "destination_uk_0",
+      "destination_uk_1",
+      "has_course_0",
+      "has_course_1",
+      "has_intake_0",
+      "has_intake_1",
+      "study_gap_mentioned_0",
+      "study_gap_mentioned_1",
+      "previous_application_mentioned_0",
+      "previous_application_mentioned_1"
+    ]
+  },
+  "generalization": {
+    "real_only": {
+      "macro_f1": 0.6157165225436817,
+      "per_class": {
+        "Cold": {
+          "precision": 0.8441558441558441,
+          "recall": 0.8666666666666667,
+          "f1": 0.8552631578947368,
+          "support": 75
+        },
+        "Warm": {
+          "precision": 0.88,
+          "recall": 0.5116279069767442,
+          "f1": 0.6470588235294118,
+          "support": 86
+        },
+        "Hot": {
+          "precision": 0.21739130434782608,
+          "recall": 0.8333333333333334,
+          "f1": 0.3448275862068966,
+          "support": 12
+        }
+      },
+      "confusion_matrix": [
+        [
+          65,
+          4,
+          6
+        ],
+        [
+          12,
+          44,
+          30
+        ],
+        [
+          0,
+          2,
+          10
+        ]
+      ]
+    },
+    "real_plus_synthetic": {
+      "macro_f1": 0.458860644740182,
+      "per_class": {
+        "Cold": {
+          "precision": 0.9206349206349206,
+          "recall": 0.7733333333333333,
+          "f1": 0.8405797101449275,
+          "support": 75
+        },
+        "Warm": {
+          "precision": 0.6956521739130435,
+          "recall": 0.18604651162790697,
+          "f1": 0.29357798165137616,
+          "support": 86
+        },
+        "Hot": {
+          "precision": 0.13793103448275862,
+          "recall": 1.0,
+          "f1": 0.24242424242424243,
+          "support": 12
+        }
+      },
+      "confusion_matrix": [
+        [
+          58,
+          7,
+          10
+        ],
+        [
+          5,
+          16,
+          65
+        ],
+        [
+          0,
+          0,
+          12
+        ]
+      ]
+    },
+    "delta_macro_f1": -0.1568558778034997,
+    "delta_per_class_f1": {
+      "Cold": -0.014683447749809342,
+      "Warm": -0.35348084187803563,
+      "Hot": -0.10240334378265414
+    },
+    "n_real_train": 688,
+    "n_real_test": 173,
+    "n_synthetic_added": 1000
+  },
+  "cv": {
+    "n_splits": 5,
+    "n_repeats": 2,
+    "macro_f1": {
+      "mean": 0.6240972454240363,
+      "std": 0.025099189893948833,
+      "ci95_low": 0.6085406063560045,
+      "ci95_high": 0.6396538844920682,
+      "n_folds": 10
+    },
+    "per_class": {
+      "Cold": {
+        "mean": 0.6911862741100556,
+        "std": 0.039817303416111775,
+        "ci95_low": 0.666507253770196,
+        "ci95_high": 0.7158652944499152,
+        "n_folds": 10
+      },
+      "Warm": {
+        "mean": 0.5010341632203369,
+        "std": 0.028394631176359732,
+        "ci95_low": 0.4834349884841432,
+        "ci95_high": 0.5186333379565305,
+        "n_folds": 10
+      },
+      "Hot": {
+        "mean": 0.6800712989417163,
+        "std": 0.024450422485794317,
+        "ci95_low": 0.6649167700792491,
+        "ci95_high": 0.6952258278041834,
+        "n_folds": 10
+      }
+    }
+  }
+}

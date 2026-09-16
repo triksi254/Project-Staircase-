@@ -159,9 +159,14 @@ Scrapper/
 ├── faq/
 │   └── faq_integrator.py        # FAQ cross-reference
 │
-├── leads/
-│   └── features.py              # Lead-scoring behavioural feature extraction
+├── leads/                       # Lead-scoring engine (proposal: rule + ML hybrid)
+│   ├── features.py              # Behavioural feature extraction (Cold/Warm/Hot label)
+│   ├── rubric.py                # Explainable rule-based scorer (alpha prior)
+│   ├── personas.py              # Synthetic chatbot session simulator (~1000 sessions)
+│   ├── train_ml.py              # Random Forest / LogReg + generalization experiment
+│   └── RESULTS.md               # Experimental results & findings
 │
+├── artifacts/                   # Trained model + metrics (metrics_*.json tracked)
 ├── CounsellorForms/             # EML assessment-form extraction (see its README)
 ├── scratch/                     # One-off exploration scripts (gitignored)
 │
@@ -176,8 +181,29 @@ Scrapper/
 └── tests/
     ├── test_scrapers.py
     ├── test_processors.py
+    ├── test_eml_extractor.py
+    ├── test_lead_features.py
+    ├── test_lead_rubric.py
+    ├── test_lead_personas.py
+    ├── test_lead_train_ml.py
     └── smoke_test.py
 ```
+
+## 🧠 Lead Scoring Pipeline
+
+```bash
+python -m leads.features                      # real feature matrix (964 rows)
+python -m leads.rubric                        # rule-based Cold/Warm/Hot scores
+python -m leads.personas --n 1000 --seed 42   # synthetic chatbot sessions
+python -m leads.train_ml --cv 5 --cv-repeat 2 # train + generalization experiment
+```
+
+See **[leads/RESULTS.md](leads/RESULTS.md)** for the full results. Headline:
+the combined model reaches macro F1 0.896, but that number is confounded by
+engagement features that exist only in synthetic data. On real leads alone the
+defensible figure is macro F1 **0.62**, and synthetic augmentation **reduced**
+real-world performance in every configuration tested — a negative result worth
+reporting.
 
 ## ✨ Key Features
 

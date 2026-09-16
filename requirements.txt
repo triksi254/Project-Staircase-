@@ -18,6 +18,14 @@ python-dotenv>=1.0.0
 # Logging
 loguru>=0.7.2
 
+# Lead-scoring ML pipeline (leads/train_ml.py)
+# Installed versions validated on Python 3.14: numpy 2.5.3, pandas 3.0.5,
+# scikit-learn 1.9.1, joblib 1.6.0
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.5
+joblib>=1.4
+
 # PostgreSQL (optional, for production database storage)
 # psycopg2-binary>=2.9.0
 
