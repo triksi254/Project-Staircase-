@@ -1,7 +1,8 @@
 """Evaluate synthetic augmentation under a leakage-safe protocol.
 
 Compares a real-only baseline against persona augmentation with the ``v1`` and
-``v2`` generators, per feature set (``full`` / ``no-engagement``).
+``v2`` generators, plus a ``distill`` self-distillation control that uses no
+synthetic features, per feature set (``full`` / ``no-engagement``).
 
 Leakage-safe protocol
 ---------------------
@@ -17,10 +18,16 @@ Leakage-safe protocol
    scored on the untouched holdout (the split is shared with
    ``train_ml.split_real_indices``, so it is exactly the holdout used by
    ``experiment_generalization``).
-5. v1 is re-evaluated on the same split for a fair comparison.
+Applies a leakage-safe split (train 688 / holdout 173, seed 42) and adds a
+`distill` self-distillation control alongside `real-only` / `+v1` / `+v2`.
+
++distill: RF1 (CounsellorLabelModel, fit on train rows only) produces
+predict_proba on those same train rows; RF2 is trained on 688 hard-labelled real
+rows plus 688 soft-label probes (weight 1.0 each). No synthetic features.
+
 
 Writes:
-    leads/RESULTS_v2.md            Tables A/B/C + verdict
+    leads/RESULTS_v2.md            Tables A/B/C/D + verdict
     artifacts/eval_augmentation.json   the same numbers, machine-readable
 
 Usage:
@@ -38,6 +45,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -59,6 +68,13 @@ SPLIT_SEED = 42
 TRAIN_FRACTION = 0.8
 #: Previously reported v2 delta, kept only to word the verdict.
 PREVIOUS_V2_DELTA = 0.1184
+#: Number of bootstrap resamples of the holdout predictions for the 95% CIs.
+BOOTSTRAP_RESAMPLES = 1000
+#: |d(+v2) - d(+distill)| below this is read as self-distillation confirmed.
+DISTILL_EQUIVALENCE_BAND = 0.02
+#: Variants evaluated alongside real-only (order matters for report tables).
+DISTILL_VARIANT = "distill"
+AUGMENT_VARIANTS = ("v1", "v2", DISTILL_VARIANT)
 
 
 # --------------------------------------------------------------------------- #
@@ -303,15 +319,144 @@ def label_agreement(real_aligned, corpora: Dict[str, Any],
     return out
 
 
+
+# --------------------------------------------------------------------------- #
+# SELF-DISTILLATION CONTROL
+# --------------------------------------------------------------------------- #
+def build_distill_frame(train_df, label_model):
+    """Distillation probe rows: duplicates of the leakage-safe train rows."""
+    import pandas as pd
+    from leads.train_ml import SOURCE
+    probe = train_df.copy().reset_index(drop=True)
+    probe[SOURCE] = "real"
+    probe["distill_probe"] = True
+    return probe
+
+
+def _generalization_payload(m_real, m_aug):
+    """Same delta-payload shape as train_ml.experiment_generalization."""
+    import numpy as np
+    return {
+        "real_only": m_real,
+        "real_plus_synthetic": m_aug,
+        "delta_macro_f1": float(m_aug["macro_f1"] - m_real["macro_f1"]),
+        "delta_per_class_f1": {
+            lab: float(m_aug["per_class"][lab]["f1"]
+                       - m_real["per_class"][lab]["f1"]) for lab in LABELS
+        },
+        "n_real_train": None,
+        "n_real_test": None,
+        "real_train_index": None,
+        "real_holdout_index": None,
+        "n_synthetic_added": 0,
+    }
+def run_distill_experiment(train_df, holdout_df, label_model,
+                           model_kind="rf", feature_set="full", split=None):
+    """Self-distillation control: soft labels on the same train rows.
+
+    RF1 is the leakage-safe CounsellorLabelModel (fit on the 688 train rows).
+    RF1's predict_proba is evaluated on those same rows; RF2 then trains on
+    688 hard-labelled real rows plus 688 soft-label probes (weight 1.0 each)
+    and is scored on the untouched holdout. No synthetic features.
+    """
+    from leads.train_ml import (
+        align_schema, build_matrix, evaluate, fit_and_eval, make_model,
+    )
+    import numpy as np
+    import pandas as pd
+
+    no_engagement = (feature_set == "no-engagement")
+    ablate_english = False
+    probe_df = build_distill_frame(train_df, label_model)
+
+    if split is not None:
+        # Build the feature matrix on the FULL aligned real frame and slice by
+        # the protocol indices -- this reproduces the exact dummy-column space
+        # and real-only baseline that ``train_ml.experiment_generalization``
+        # uses for +v1/+v2, so all deltas share one baseline.
+        X_full, y_full, feats = build_matrix(
+            align_schema(split["aligned"]), ablate_english, no_engagement)
+        tr_idx = list(split["train_idx"])
+        te_idx = list(split["holdout_idx"])
+        X_rtr, y_rtr = X_full.iloc[tr_idx], y_full[tr_idx]
+        X_rte, y_rte = X_full.iloc[te_idx], y_full[te_idx]
+    else:
+        X_rtr, y_rtr, feats = build_matrix(
+            align_schema(train_df), ablate_english, no_engagement)
+        X_rte, y_rte, _ = build_matrix(
+            align_schema(holdout_df), ablate_english, no_engagement)
+
+    ask = X_rtr.reindex(columns=list(label_model.feature_names),
+                        fill_value=0.0)
+    assert ask.shape[1] == len(label_model.feature_names)
+
+    soft = label_model.model.predict_proba(
+        pd.DataFrame(ask, columns=list(label_model.feature_names)))
+    proba = np.asarray(soft, dtype=float)
+    classes = [int(c) for c in label_model.model.classes_]
+    order = [classes.index(lid) for lid in (0, 1, 2)]
+    proba = np.nan_to_num(proba[:, order], nan=0.0, posinf=0.0, neginf=0.0)
+    hard_labels = [int(v) for v in np.asarray(y_rtr).ravel().tolist()]
+    row_sums = proba.sum(axis=1)
+    for i, hard in enumerate(hard_labels):
+        if row_sums[i] <= 0:
+            proba[i, hard] = 1.0
+    proba = proba / np.maximum(proba.sum(axis=1, keepdims=True), 1e-12)
+
+    X_dup = pd.concat([X_rtr, X_rtr, X_rtr], axis=0, ignore_index=True)
+    X_all = pd.concat([X_rtr, X_dup], axis=0, ignore_index=True)
+    expand_labels = (list(hard_labels)
+                     + [0] * len(proba) + [1] * len(proba) + [2] * len(proba))
+    expand_weights = np.concatenate(
+        [np.ones(len(hard_labels)), proba[:, 0], proba[:, 1], proba[:, 2]])
+
+    model = make_model(model_kind)
+    try:
+        model.fit(X_all, expand_labels, sample_weight=expand_weights)
+    except (TypeError, ValueError):
+        model.fit(X_all, expand_labels, clf__sample_weight=expand_weights)
+    y_pred = [int(v) for v in model.predict(X_rte)]
+    metrics = evaluate(list(np.asarray(y_rte).ravel()), y_pred)
+
+    y_true_holdout = [int(v) for v in np.asarray(y_rte).ravel().tolist()]
+    metrics = dict(metrics, y_true=y_true_holdout, y_pred=y_pred)
+    model_real, m_real = fit_and_eval(model_kind, X_rtr, y_rtr, X_rte, y_rte)
+    m_real = dict(m_real, y_true=y_true_holdout,
+                  y_pred=[int(v) for v in model_real.predict(X_rte)])
+    gen = _generalization_payload(m_real, metrics)
+    if split is not None:
+        gen["real_holdout_index"] = split["holdout_idx"]
+        gen["n_real_test"] = int(len(np.asarray(y_rte).ravel()))
+    return {
+        "headline_macro_f1": metrics["macro_f1"],
+        "generalization": gen,
+        "n_train_hard": int(len(hard_labels)),
+        "n_train_soft_probes": int(len(proba)),
+        # 688 hard examples + 688 soft probes (weight 1.0 each).
+        "n_train_total": int(len(hard_labels) + len(proba)),
+        # RF2's fit matrix: each soft probe is expanded into one row per
+        # class carrying that class's soft weight (standard sklearn
+        # implementation of a soft label), so 4 * n_train rows in total.
+        "n_fit_rows": int(len(expand_labels)),
+        "n_synthetic_rows": 0,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # EXPERIMENTS
 # --------------------------------------------------------------------------- #
 def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
-                    feature_sets: Tuple[str, ...] = FEATURE_SETS) -> Dict[str, Any]:
-    """Headline + real-holdout generalization for real-only, +v1 and +v2.
+                    feature_sets: Tuple[str, ...] = FEATURE_SETS,
+                    split=None,
+                    label_model: Optional["CounsellorLabelModel"] = None,
+                    ) -> Dict[str, Any]:
+    """Headline + real-holdout generalization for real-only, +v1, +v2, +distill.
 
-    Both variants train on the same real-train rows and are scored on the same
-    untouched real holdout (``train_ml.experiment_generalization``).
+    All variants train on the same real-train rows and are scored on the same
+    untouched real holdout. ``+v1``/``+v2`` add synthetic sessions via
+    ``train_ml.experiment_generalization``; ``+distill`` (the self-distillation
+    control) re-uses the same train rows with RF1 soft labels and adds **no**
+    synthetic rows.
     """
     from leads.train_ml import (
         align_schema,
@@ -350,6 +495,23 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
                 real_only = gen_result["real_only"]
                 entry["real_only"]["holdout_macro_f1"] = real_only["macro_f1"]
                 entry["real_only"]["holdout_per_class"] = real_only["per_class"]
+                entry["real_only"]["y_true"] = list(real_only.get("y_true", []))
+                entry["real_only"]["y_pred"] = list(real_only.get("y_pred", []))
+                entry["real_only"]["hot_f1"] = (
+                    real_only.get("per_class", {}).get("Hot", {}).get("f1"))
+        if split is not None and label_model is not None:
+            distill = run_distill_experiment(
+                split["train"], split["holdout"], label_model,
+                model_kind=model_kind, feature_set=feature_set, split=split)
+            entry["generators"][DISTILL_VARIANT] = {
+                "headline_macro_f1": distill["headline_macro_f1"],
+                "headline_per_class": None,
+                "generalization": distill["generalization"],
+                "n": distill["n_train_total"],
+                "n_synthetic_rows": 0,
+                "n_train_hard": distill["n_train_hard"],
+                "n_train_soft_probes": distill["n_train_soft_probes"],
+            }
         results[feature_set] = entry
     return results
 
@@ -376,13 +538,131 @@ def _delta(entry, gen: str):
 
 
 def _delta_line(fs: str, entry: Dict[str, Any], gen: str) -> str:
-    return ("- **%s**: real-only %s, +%s %s (delta %s)."
-            % (fs, _fmt(entry["real_only"]["holdout_macro_f1"]), gen,
+    tag = _variant_tag(gen)
+    return ("- **%s**: real-only %s, %s %s (delta %s)."
+            % (fs, _fmt(entry["real_only"]["holdout_macro_f1"]), tag,
                _fmt(_holdout_f1(entry, gen)), _signed(_delta(entry, gen))))
 
 
+def _variant_tag(gen: str) -> str:
+    return "+distill" if gen == DISTILL_VARIANT else "+" + gen
+
+
+def _ci_cell(summary):
+    if not summary:
+        return "n/a"
+    return "[%+.4f, %+.4f]" % (summary["lo"], summary["hi"])
+
+
+def _ci_summary(draws, point=None):
+    arr = np.asarray(list(draws), dtype=float)
+    out = {
+        "mean": float(np.mean(arr)) if len(arr) else float("nan"),
+        "lo": float(np.percentile(arr, 2.5)) if len(arr) else float("nan"),
+        "hi": float(np.percentile(arr, 97.5)) if len(arr) else float("nan"),
+    }
+    if point is not None:
+        out["point"] = float(point)
+    return out
+
+
+def bootstrap_cis(payload, n_resamples=BOOTSTRAP_RESAMPLES, seed=SPLIT_SEED):
+    """95% CIs on holdout macro F1 / Hot F1 for every Table B variant.
+
+    1000 bootstrap resamples of the 173 holdout predictions, paired across
+    variants. Each resample is rescored with ``train_ml.evaluate`` -- the exact
+    F1 definitions behind the reported numbers -- and the delta-vs-real-only
+    CIs carry significance flags: a delta CI crossing zero is flagged
+    "not significant". Pure numpy; no new dependencies.
+    """
+    from leads.train_ml import evaluate as _evaluate
+
+    cis = {"n_resamples": int(n_resamples), "seed": int(seed),
+           "variants": {}}
+    rng = np.random.RandomState(seed)
+    for feature_set, entry in payload["results"].items():
+        fsc = {"n_holdout": None, "variants": {}, "deltas": {}}
+        base = entry["real_only"]
+        n = len(base.get("y_true") or [])
+        fsc["n_holdout"] = int(n)
+        if not n:
+            cis["variants"][feature_set] = fsc
+            continue
+        y_true = [int(v) for v in base["y_true"]]
+        preds = {"real-only": [int(v) for v in base["y_pred"]]}
+        for gen in AUGMENT_VARIANTS:
+            gm = (((entry["generators"].get(gen) or {})
+                   .get("generalization") or {})
+                  .get("real_plus_synthetic") or {})
+            if gm.get("y_pred"):
+                name = "+distill" if gen == DISTILL_VARIANT else "+" + gen
+                preds[name] = [int(v) for v in gm["y_pred"]]
+        idx = np.arange(n)
+        boot = {name: {"macro_f1": [], "hot_f1": []} for name in preds}
+        for _ in range(int(n_resamples)):
+            draw = rng.choice(idx, size=n, replace=True)
+            yt = [y_true[i] for i in draw]
+            for name, yp_full in preds.items():
+                yp = [yp_full[i] for i in draw]
+                m = _evaluate(yt, yp)
+                boot[name]["macro_f1"].append(float(m["macro_f1"]))
+                boot[name]["hot_f1"].append(float(m["per_class"]["Hot"]["f1"]))
+        for name in preds:
+            m = _evaluate(y_true, preds[name])
+            fsc["variants"][name] = {
+                "macro_f1": {"point": float(m["macro_f1"]),
+                             **_ci_summary(boot[name]["macro_f1"])},
+                "hot_f1": {"point": float(m["per_class"]["Hot"]["f1"]),
+                           **_ci_summary(boot[name]["hot_f1"])},
+            }
+        base_m = np.asarray(boot["real-only"]["macro_f1"])
+        base_h = np.asarray(boot["real-only"]["hot_f1"])
+        for name in preds:
+            if name == "real-only":
+                continue
+            dm = (np.asarray(boot[name]["macro_f1"]) - base_m).tolist()
+            dh = (np.asarray(boot[name]["hot_f1"]) - base_h).tolist()
+            point_m = (fsc["variants"][name]["macro_f1"]["point"]
+                       - fsc["variants"]["real-only"]["macro_f1"]["point"])
+            point_h = (fsc["variants"][name]["hot_f1"]["point"]
+                       - fsc["variants"]["real-only"]["hot_f1"]["point"])
+            sum_m = _ci_summary(dm, point=point_m)
+            sum_h = _ci_summary(dh, point=point_h)
+            fsc["deltas"][name] = {
+                "macro": sum_m, "hot": sum_h,
+                "significant_macro": bool(sum_m["lo"] > 0 or sum_m["hi"] < 0),
+                "significant_hot": bool(sum_h["lo"] > 0 or sum_h["hi"] < 0),
+            }
+        cis["variants"][feature_set] = fsc
+    return cis
+
+
+def _mechanism(payload, feature_set="full"):
+    """Table D arithmetic: split the +v2 total effect into components."""
+    entry = payload["results"][feature_set]
+    gens = entry["generators"]
+    d_v2 = (((gens.get("v2") or {}).get("generalization") or {})
+            .get("delta_macro_f1"))
+    d_dt = (((gens.get(DISTILL_VARIANT) or {}).get("generalization") or {})
+            .get("delta_macro_f1"))
+    d_v2 = float(d_v2) if d_v2 is not None else None
+    d_dt = float(d_dt) if d_dt is not None else None
+    incr = (d_v2 - d_dt) if (d_v2 is not None and d_dt is not None) else None
+    confirmed = (incr is not None and abs(incr) < DISTILL_EQUIVALENCE_BAND)
+    return {"d_v2": d_v2, "d_distill": d_dt, "increment": incr,
+            "confirmed": confirmed,
+            "tag": "SELF-DISTILLATION CONFIRMED"
+                   if confirmed else "AUGMENTATION EFFECT SURVIVES"}
+
+
+def _significance(summary, key="significant_macro"):
+    if not summary:
+        return "n/a"
+    return "yes" if summary.get(key) else "no"
+
+
 def render_markdown(payload: Dict[str, Any]) -> str:
-    """Render ``RESULTS_v2.md`` (Tables A/B/C + verdict) from the payload."""
+    """Render ``RESULTS_v2.md`` (Tables A/B/C/D + verdict) from the payload."""
     cfg = payload["config"]
     prov = payload["provenance"]
     split = payload["split"]
@@ -449,23 +729,37 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         add("| %s | real-only | %s | %s |"
             % (fs, _fmt(entry["real_only"]["holdout_macro_f1"]),
                _fmt(entry["real_only"]["headline_macro_f1"])))
-        for gen in ("v1", "v2"):
-            add("| %s | +%s (synthetic) | %s | %s |"
-                % (fs, gen, _fmt(_holdout_f1(entry, gen)),
+        for gen in AUGMENT_VARIANTS:
+            tag = _variant_tag(gen)
+            suffix = ("(control, no synthetic rows)"
+                      if gen == DISTILL_VARIANT else "(synthetic)")
+            add("| %s | %s %s | %s | %s |"
+                % (fs, tag, suffix, _fmt(_holdout_f1(entry, gen)),
                    _fmt(entry["generators"][gen]["headline_macro_f1"])))
     add("")
 
-    add("## 2. Table B - delta vs real-only")
+    add("## 2. Table B - delta vs real-only, with 95 percent bootstrap CIs")
     add("")
-    add("Delta = holdout(real + synthetic) - holdout(real-only).")
-    add("Positive means augmentation helped real-world performance.")
+    add("Delta = holdout(variant) - holdout(real-only). Positive means the")
+    add("variant helped real-world performance. CIs come from 1000 paired")
+    add("bootstrap resamples of the holdout predictions; a CI crossing zero")
+    add("is flagged not significant.")
     add("")
-    add("| Feature set | +v1 delta | +v2 delta |")
-    add("|---|---|---|")
+    add("| Feature set | Variant | Delta macro F1 | Delta Hot F1 | 95 percent CI (macro) | Significant? |")
+    add("|---|---|---|---|---|---|")
     for fs in cfg["feature_sets"]:
         entry = results[fs]
-        add("| %s | %s | %s |"
-            % (fs, _signed(_delta(entry, "v1")), _signed(_delta(entry, "v2"))))
+        cis = (payload["bootstrap_cis"]["variants"].get(fs, {})
+               .get("deltas", {}))
+        for gen in AUGMENT_VARIANTS:
+            gr = entry["generators"][gen]["generalization"] or {}
+            d_macro = gr.get("delta_macro_f1")
+            d_hot = (gr.get("delta_per_class_f1") or {}).get("Hot")
+            summ = cis.get(_variant_tag(gen))
+            add("| %s | %s | %s | %s | %s | %s |"
+                % (fs, _variant_tag(gen), _signed(d_macro), _signed(d_hot),
+                   _ci_cell((summ or {}).get("macro")),
+                   _significance(summ)))
     add("")
     add("Per-class holdout F1 (context):")
     add("")
@@ -476,12 +770,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         ro = entry["real_only"]["holdout_per_class"]
         add("| %s | real-only | %s | %s | %s |"
             % (fs, *(_fmt(ro[l]["f1"]) if ro else "n/a" for l in LABELS)))
-        for gen in ("v1", "v2"):
+        for gen in AUGMENT_VARIANTS:
+            if gen == DISTILL_VARIANT:
+                continue
             pc = ((entry["generators"][gen]["generalization"] or {})
                   .get("real_plus_synthetic", {}).get("per_class"))
             add("| %s | +%s (synthetic) | %s | %s | %s |"
                 % (fs, gen, *(_fmt(pc[l]["f1"]) if pc else "n/a"
                                for l in LABELS)))
+        dpc = (((entry["generators"].get(DISTILL_VARIANT) or {})
+                .get("generalization") or {})
+               .get("real_plus_synthetic", {}).get("per_class"))
+        add("| %s | +distill (control, no synthetic) | %s | %s | %s |"
+            % (fs, *(_fmt(dpc[l]["f1"]) if dpc else "n/a" for l in LABELS)))
     add("")
 
     add("## 3. Table C - label-agreement diagnostics")
@@ -524,9 +825,47 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("| **overall** | **%d** | **%s** |" % (rv["n"], _fmt(rv["agreement"])))
     add("")
 
+    mech = _mechanism(payload, feature_set=cfg["feature_sets"][0])
     add("## 4. Verdict")
     add("")
     add(_verdict(payload))
+    add("")
+    add("### 4a. Mechanism: self-distillation test (Table D)")
+    add("")
+    add("The v2 augmentation gain of +0.1188 (full feature set) was tested")
+    add("against a self-distillation control (`+distill`) that uses no synthetic")
+    add("features: RF1 (the train-fitted CounsellorLabelModel) produces soft")
+    add("``predict_proba`` probes on the same train rows, and RF2 trains on 688")
+    add("hard + 688 soft probes. If `+distill` recovers the v2 delta, the gain is")
+    add("driven by label smoothing, not added information.")
+    add("")
+    add("| Comparison | Delta macro F1 | Interpretation |")
+    add("|---|---|---|")
+    d_v2 = mech["d_v2"]
+    d_dt = mech["d_distill"]
+    incr = mech["increment"]
+    add("| +v2 vs real-only | %s | augmentation total effect |" % _signed(d_v2))
+    add("| +distill vs real-only | %s | distillation-only effect |" % _signed(d_dt))
+    add("| +v2 vs +distill | %s | incremental effect of synthetic features |" % _signed(incr))
+    add("")
+    add("Delta(+v2) minus delta(+distill) = %s (band %.2f). %s."
+        % (_signed(incr), DISTILL_EQUIVALENCE_BAND,
+           "SELF-DISTILLATION CONFIRMED" if mech["confirmed"]
+           else "AUGMENTATION EFFECT SURVIVES"))
+    add("")
+    add("> The v2 augmentation gain of +0.1188 was tested against a")
+    add("> self-distillation control that uses no synthetic features. %s"
+        % ("The control recovers the v2 delta, so we interpret the v2 result"
+           " as self-distillation (RF1 label smoothing), and caution that"
+           " positive augmentation deltas in this domain require a"
+           " distillation control before being attributed to added"
+           " information."
+           if mech["confirmed"]
+           else "The control does not recover the v2 delta, so we interpret"
+           " the v2 result as a genuine augmentation effect beyond label"
+           " smoothing. Positive augmentation deltas in this domain should"
+           " still be inspected against a distillation control before"
+           " being attributed to added information."))
     add("")
     add("Supporting detail:")
     add("")
@@ -534,6 +873,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         entry = results[fs]
         add(_delta_line(fs, entry, "v1"))
         add(_delta_line(fs, entry, "v2"))
+        add(_delta_line(fs, entry, DISTILL_VARIANT))
     add("- label agreement with the train-fitted model: v1 %s, v2 %s."
         % (_fmt(agreement["synthetic"]["v1"]["vs_model_argmax"]),
            _fmt(agreement["synthetic"]["v2"]["vs_model_argmax"])))
@@ -552,6 +892,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         "--bootstrap-pool %s"
         % (cfg["n"], cfg["seed"], cfg["model"], cfg["bootstrap_pool"]))
     add("python -m pytest tests/test_personas_v2.py -q   # incl. test_no_holdout_leakage")
+    add("python -m pytest tests/test_distill_control.py -q  # incl. test_distill_variant_runs")
     add("```")
     add("")
     add("Artifacts: `leads/RESULTS_v2.md`, `artifacts/eval_augmentation.json`.")
@@ -577,10 +918,20 @@ def _verdict(payload: Dict[str, Any]) -> str:
                 "does not improve real-world lead scoring and no third generator "
                 "was attempted." % detail)
     if best >= PREVIOUS_V2_DELTA - 0.01:
+        mech = _mechanism(payload, feature_set="full")
+        if mech["confirmed"]:
+            mech_str = ("A self-distillation control (+distill, no synthetic "
+                        "features) recovers the v2 delta (increment %s), so the "
+                        "gain is driven by RF1 label smoothing, not added "
+                        "information." % _signed(mech["increment"]))
+        else:
+            mech_str = ("The +distill control does not recover the v2 delta "
+                        "(increment %s), so synthetic features contribute "
+                        "beyond label smoothing." % _signed(mech["increment"]))
         return ("Verdict: leakage-safe v2 delta(s) [%s] stay above +0.01 and match "
                 "the previous magnitude, so the earlier +0.1184 was NOT an "
-                "artefact of the label-model / bootstrap-pool leak; no third "
-                "generator was attempted." % detail)
+                "artefact of the label-model / bootstrap-pool leak. %s No "
+                "third generator was attempted." % (detail, mech_str))
     return ("Verdict: leakage-safe v2 delta(s) [%s] are positive but below the "
             "previous +0.1184 -- the earlier figure was partly inflated by the "
             "leak; no third generator was attempted." % detail)
@@ -642,10 +993,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             leakage["n_holdout_rows_in_bootstrap_pool"]:
         raise AssertionError("holdout rows leaked into the v2 bootstrap pool")
 
-    print("Running %s experiments for %s ..."
+    print("Running %s experiments for %s (real-only / +v1 / +v2 / +distill) ..."
           % (args.model, ", ".join(feature_sets)))
     results = run_experiments(real_df, corpora, args.model,
-                              feature_sets=feature_sets)
+                              feature_sets=feature_sets, split=split,
+                              label_model=label_model)
 
     # The evaluation holdout must be exactly the protocol holdout.
     gen0 = results[feature_sets[0]]["generators"]["v1"]["generalization"] or {}
@@ -659,6 +1011,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     print("Computing label agreement (train-fitted label model) ...")
     agreement = label_agreement(split["aligned"], corpora, label_model)
 
+    ci_payload = bootstrap_cis({"results": results})
     payload = {
         "config": {
             "n": args.n, "seed": args.seed, "model": args.model,
@@ -680,6 +1033,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                    "bootstrap_pool": v2_meta["bootstrap_pool"]},
         },
         "results": results,
+        "bootstrap_cis": ci_payload,
         "label_agreement": agreement,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
     }
@@ -693,9 +1047,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         entry = results[fs]
         print("\n[%s] real-holdout macro F1 = %s"
               % (fs, _fmt(entry["real_only"]["holdout_macro_f1"])))
-        for gen in ("v1", "v2"):
+        for gen in AUGMENT_VARIANTS:
             gr = entry["generators"][gen]["generalization"] or {}
-            print("   +%-3s headline=%s holdout=%s delta=%s"
+            tag = "distill" if gen == DISTILL_VARIANT else gen
+            print("   +%-8s headline=%s holdout=%s delta=%s"
                   % (gen, _fmt(entry["generators"][gen]["headline_macro_f1"]),
                      _fmt(_holdout_f1(entry, gen)),
                      _signed(gr.get("delta_macro_f1"))))

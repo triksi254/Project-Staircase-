@@ -379,11 +379,18 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
     X_rtr, X_rte = X_real.iloc[tr_idx], X_real.iloc[te_idx]
     y_rtr, y_rte = y_real[tr_idx], y_real[te_idx]
 
-    _, m_real = fit_and_eval(model_kind, X_rtr, y_rtr, X_rte, y_rte)
+    model_real, m_real = fit_and_eval(model_kind, X_rtr, y_rtr, X_rte, y_rte)
 
     X_aug = pd.concat([X_rtr, X_syn], axis=0, ignore_index=True)
     y_aug = np.concatenate([y_rtr, y_syn])
-    _, m_aug = fit_and_eval(model_kind, X_aug, y_aug, X_rte, y_rte)
+    model_aug, m_aug = fit_and_eval(model_kind, X_aug, y_aug, X_rte, y_rte)
+    # Holdout predictions (paired with the protocol holdout) for bootstrap CIs
+    # in ``leads.eval_augmentation``. Additive keys only; no split change.
+    y_true_holdout = [int(v) for v in np.asarray(y_rte).ravel().tolist()]
+    m_real = dict(m_real, y_true=y_true_holdout,
+                  y_pred=[int(v) for v in model_real.predict(X_rte)])
+    m_aug = dict(m_aug, y_true=y_true_holdout,
+                 y_pred=[int(v) for v in model_aug.predict(X_rte)])
 
     return {
         "real_only": m_real,
