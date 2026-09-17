@@ -6,8 +6,8 @@ synthetic features, per feature set (``full`` / ``no-engagement``).
 
 Leakage-safe protocol
 ---------------------
-1. Stratified 80/20 split of the labelled real rows (seed 42):
-   train 688 / holdout 173 (on the 861-row corpus).
+1. Stratified 80/20 split of the labelled real rows (seed = ``--seed``/``--seeds``;
+   42 by default): train 688 / holdout 173 (on the 861-row corpus).
 2. ``CounsellorLabelModel`` is fit on the **train rows only**.
 3. v2 bootstraps synthetic profiles from the **train rows only**
    (``--bootstrap-pool train``, default). ``--bootstrap-pool all`` reproduces
@@ -18,21 +18,32 @@ Leakage-safe protocol
    scored on the untouched holdout (the split is shared with
    ``train_ml.split_real_indices``, so it is exactly the holdout used by
    ``experiment_generalization``).
-Applies a leakage-safe split (train 688 / holdout 173, seed 42) and adds a
-`distill` self-distillation control alongside `real-only` / `+v1` / `+v2`.
+Applies a leakage-safe split (train 688 / holdout 173, seed 42 by default) and
+adds a `distill` self-distillation control alongside `real-only` / `+v1` / `+v2`.
 
 +distill: RF1 (CounsellorLabelModel, fit on train rows only) produces
 predict_proba on those same train rows; RF2 is trained on 688 hard-labelled real
 rows plus 688 soft-label probes (weight 1.0 each). No synthetic features.
 
+Seed robustness
+---------------
+``--seeds 1,7,42`` re-runs the *entire* pipeline once per seed: the same value
+drives the train/holdout split, the CounsellorLabelModel fit, the v1/v2
+generators and therefore the v2 bootstrap pool. The learner seed stays fixed at
+42 so only the data seed varies. Holdout macro F1 and Hot F1 are collected per
+variant per seed and reported in Table E / E2 with the mean/min/max of each
+delta, plus a three-tier verdict (ROBUST / PARTIALLY ROBUST / SEED-SENSITIVE).
+
 
 Writes:
-    leads/RESULTS_v2.md            Tables A/B/C/D + verdict
+    leads/RESULTS_v2.md            Tables A/B/C/D/E + verdict
     artifacts/eval_augmentation.json   the same numbers, machine-readable
+    artifacts/eval_augmentation_seed_robustness.json   per-seed sweep
 
 Usage:
     python -m leads.eval_augmentation
     python -m leads.eval_augmentation --n 1000 --seed 42 --model rf
+    python -m leads.eval_augmentation --seeds 1,7,42       # seed robustness
     python -m leads.eval_augmentation --bootstrap-pool all   # legacy, leaky
 
 No new dependencies (numpy / pandas / scikit-learn are already required by
@@ -449,6 +460,7 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
                     feature_sets: Tuple[str, ...] = FEATURE_SETS,
                     split=None,
                     label_model: Optional["CounsellorLabelModel"] = None,
+                    split_random_state: int = SPLIT_SEED,
                     ) -> Dict[str, Any]:
     """Headline + real-holdout generalization for real-only, +v1, +v2, +distill.
 
@@ -457,6 +469,11 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
     ``train_ml.experiment_generalization``; ``+distill`` (the self-distillation
     control) re-uses the same train rows with RF1 soft labels and adds **no**
     synthetic rows.
+
+    ``split_random_state`` must equal the seed used to build ``split`` so the
+    holdout evaluated here is exactly the protocol holdout (asserted by the
+    caller) -- this is what makes a seed sweep measure the split and the
+    generator together.
     """
     from leads.train_ml import (
         align_schema,
@@ -469,7 +486,8 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
     for feature_set in feature_sets:
         no_engagement = feature_set == "no-engagement"
         _, real_head = experiment_combined(
-            real_combined, False, model_kind, no_engagement=no_engagement)
+            real_combined, False, model_kind, no_engagement=no_engagement,
+            random_state=split_random_state)
         entry: Dict[str, Any] = {
             "real_only": {
                 "headline_macro_f1": real_head["macro_f1"],
@@ -483,9 +501,11 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
         for gen, synth_df in corpora.items():
             combined = _combined(real_df, synth_df)
             gen_result = experiment_generalization(
-                combined, False, model_kind, no_engagement=no_engagement)
+                combined, False, model_kind, no_engagement=no_engagement,
+                split_random_state=split_random_state)
             _, head = experiment_combined(
-                combined, False, model_kind, no_engagement=no_engagement)
+                combined, False, model_kind, no_engagement=no_engagement,
+                random_state=split_random_state)
             entry["generators"][gen] = {
                 "headline_macro_f1": head["macro_f1"],
                 "headline_per_class": head["per_class"],
@@ -514,6 +534,146 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
             }
         results[feature_set] = entry
     return results
+
+
+# --------------------------------------------------------------------------- #
+# SEED ROBUSTNESS
+# --------------------------------------------------------------------------- #
+#: Evaluated variants, in report order (real-only is the delta baseline).
+ROBUSTNESS_VARIANTS = ("real-only", "v1", "v2", DISTILL_VARIANT)
+DELTA_VARIANTS = ("v1", "v2", DISTILL_VARIANT)
+
+
+def parse_seeds(spec: str) -> List[int]:
+    """Parse ``--seeds "1,7,42"`` -> ``[1, 7, 42]``.
+
+    A single value (``"42"``) yields a one-element list, so the pre-existing
+    single-seed command line reproduces the earlier result exactly.
+    """
+    seeds: List[int] = []
+    for part in str(spec).replace(" ", "").split(","):
+        if not part:
+            continue
+        seeds.append(int(part))
+    if not seeds:
+        raise ValueError("--seeds must contain at least one integer")
+    return seeds
+
+
+def _holdout_hot_f1(entry: Dict[str, Any], gen: str):
+    gen_result = entry["generators"][gen]["generalization"] or {}
+    return ((gen_result.get("real_plus_synthetic") or {})
+            .get("per_class", {}).get("Hot", {}).get("f1"))
+
+
+def _real_only_hot_f1(entry: Dict[str, Any]):
+    return ((entry["real_only"].get("holdout_per_class") or {})
+            .get("Hot", {}).get("f1"))
+
+
+def seed_robustness(per_seed: Dict[int, Dict[str, Any]],
+                    feature_sets) -> Dict[str, Any]:
+    """Aggregate per-seed holdout metrics into per-variant deltas + ranges.
+
+    ``per_seed`` maps seed -> the payload returned by :func:`_pipeline_for_seed`.
+    For every feature set this collects the holdout macro F1 and Hot F1 of each
+    variant, the delta vs real-only per seed, and the mean/min/max of each
+    delta across seeds.
+    """
+    seeds = sorted(per_seed)
+    out: Dict[str, Any] = {
+        "seeds": seeds,
+        "n_seeds": len(seeds),
+        "feature_sets": {},
+    }
+    for fs in feature_sets:
+        rows: List[Dict[str, Any]] = []
+        for seed in seeds:
+            entry = per_seed[seed]["results"][fs]
+            row: Dict[str, Any] = {
+                "seed": int(seed),
+                "real_only_macro": entry["real_only"]["holdout_macro_f1"],
+                "real_only_hot": _real_only_hot_f1(entry),
+            }
+            for gen in DELTA_VARIANTS:
+                gen_result = (entry["generators"][gen]["generalization"] or {})
+                aug = gen_result.get("real_plus_synthetic") or {}
+                row["%s_macro" % gen] = aug.get("macro_f1")
+                row["%s_hot" % gen] = (aug.get("per_class", {})
+                                       .get("Hot", {}).get("f1"))
+                row["delta_%s_macro" % gen] = gen_result.get("delta_macro_f1")
+                row["delta_%s_hot" % gen] = (gen_result.get("delta_per_class_f1")
+                                             or {}).get("Hot")
+            rows.append(row)
+
+        summary: Dict[str, Any] = {}
+        for gen in DELTA_VARIANTS:
+            rec: Dict[str, Any] = {}
+            for metric in ("macro", "hot"):
+                key = "delta_%s_%s" % (gen, metric)
+                vals = [float(r[key]) for r in rows if r[key] is not None]
+                rec[metric] = {
+                    "n": len(vals),
+                    "mean": float(np.mean(vals)) if vals else None,
+                    "min": float(np.min(vals)) if vals else None,
+                    "max": float(np.max(vals)) if vals else None,
+                }
+            summary[gen] = rec
+        out["feature_sets"][fs] = {"rows": rows, "summary": summary}
+    return out
+
+
+def _seed_verdict(summary: Dict[str, Any], gen: str = "v2") -> Optional[Dict[str, str]]:
+    """Three-tier robustness verdict for one feature set.
+
+    Rules (evaluated in this order, on the across-seed macro delta):
+      1. min > 0.02                                -> ROBUST
+      2. min > 0 and max > 0.15 and min < 0.05     -> PARTIALLY ROBUST
+      3. any seed <= 0                             -> SEED-SENSITIVE
+      4. otherwise (positive but tiny everywhere)  -> INCONCLUSIVE
+    """
+    rec = (summary or {}).get(gen, {}).get("macro") or {}
+    if not rec or rec.get("min") is None:
+        return None
+    lo, hi, mean = rec["min"], rec["max"], rec["mean"]
+    rng = "mean %+.4f, range [%+.4f, %+.4f] over %d seeds" % (
+        mean, lo, hi, rec.get("n", 0))
+    if lo > 0.02:
+        return {"tier": "ROBUST",
+                "reason": "minimum across seeds is above +0.02 (%s)" % rng}
+    if lo > 0 and hi > 0.15 and lo < 0.05:
+        return {"tier": "PARTIALLY ROBUST",
+                "reason": "direction stable but magnitude seed-dependent (%s)" % rng}
+    if lo <= 0:
+        return {"tier": "SEED-SENSITIVE",
+                "reason": "at least one seed gives a non-positive delta (%s); "
+                          "the point estimate is not reliable, report the range"
+                          % rng}
+    return {"tier": "INCONCLUSIVE",
+            "reason": "positive at every seed but below the 0.02 stability "
+                      "band (%s)" % rng}
+
+
+def _overall_seed_verdict(robust: Dict[str, Any], cfg: Dict[str, Any]) -> str:
+    """One-line verdict, keyed on the full feature set (the headline claim)."""
+    primary = "full" if "full" in robust["feature_sets"] else cfg["feature_sets"][0]
+    block = robust["feature_sets"][primary]
+    verdict = _seed_verdict(block["summary"], "v2")
+    if verdict is None:
+        return "Verdict: n/a (no evaluable across-seed delta for %s)." % primary
+    detail = ""
+    others = [fs for fs in robust["feature_sets"] if fs != primary]
+    if others:
+        parts = []
+        for fs in others:
+            v = _seed_verdict(robust["feature_sets"][fs]["summary"], "v2")
+            if v:
+                rec = robust["feature_sets"][fs]["summary"]["v2"]["macro"]
+                parts.append("%s %s (range [%+.4f, %+.4f])"
+                             % (fs, v["tier"], rec["min"], rec["max"]))
+        if parts:
+            detail = " Other feature sets: %s." % "; ".join(parts)
+    return "Verdict: **%s** -- %s.%s" % (verdict["tier"], verdict["reason"], detail)
 
 
 # --------------------------------------------------------------------------- #
@@ -661,8 +821,85 @@ def _significance(summary, key="significant_macro"):
     return "yes" if summary.get(key) else "no"
 
 
+def _render_seed_robustness(robust: Dict[str, Any], cfg: Dict[str, Any]) -> List[str]:
+    """Tables E / E2 -- holdout macro F1 and Hot F1 per variant per seed."""
+    lines: List[str] = []
+    add = lines.append
+    add("## 5. Table E - Seed robustness")
+    add("")
+    add("Each seed drives **both** the train/holdout split and the v1/v2")
+    add("generators (and therefore the CounsellorLabelModel fit and the v2")
+    add("bootstrap pool), so a seed change re-runs the entire pipeline. The")
+    add("learner seed stays fixed at 42 so only the data seed varies. Deltas")
+    add("are holdout macro F1 / Hot F1 vs the same seed's real-only baseline.")
+    add("")
+    if robust["n_seeds"] < 2:
+        add("> Single-seed run: min/max equal the point estimate, so the tier")
+        add("> below is a point estimate, not a robustness assessment.")
+        add("")
+    for fs, block in robust["feature_sets"].items():
+        summary = block["summary"]
+        verdict = _seed_verdict(summary, "v2")
+        add("### %s (%d seeds: %s)" % (fs, robust["n_seeds"],
+                                       ", ".join(str(s) for s in robust["seeds"])))
+        add("")
+        add("#### Table E - holdout macro F1")
+        add("")
+        add("| Seed | real-only | +v1 | +v2 | +distill | D(+v2) | D(+distill) |")
+        add("|---|---|---|---|---|---|---|")
+        for row in block["rows"]:
+            add("| %d | %s | %s | %s | %s | %s | %s |"
+                % (row["seed"], _fmt(row["real_only_macro"]),
+                   _fmt(row["v1_macro"]), _fmt(row["v2_macro"]),
+                   _fmt(row["distill_macro"]), _signed(row["delta_v2_macro"]),
+                   _signed(row["delta_distill_macro"])))
+        add("| **mean [min, max]** | | | | | **%s [%s, %s]** | **%s [%s, %s]** |"
+            % (_signed(summary["v2"]["macro"]["mean"]),
+               _signed(summary["v2"]["macro"]["min"]),
+               _signed(summary["v2"]["macro"]["max"]),
+               _signed(summary[DISTILL_VARIANT]["macro"]["mean"]),
+               _signed(summary[DISTILL_VARIANT]["macro"]["min"]),
+               _signed(summary[DISTILL_VARIANT]["macro"]["max"])))
+        add("")
+        add("Delta summary (macro F1): " + "; ".join(
+            "D(+%s) mean %s, range [%s, %s]"
+            % (g, _signed(summary[g]["macro"]["mean"]),
+               _signed(summary[g]["macro"]["min"]),
+               _signed(summary[g]["macro"]["max"]))
+            for g in ("v1", "v2", DISTILL_VARIANT)) + ".")
+        add("")
+        add("#### Table E2 - holdout Hot F1")
+        add("")
+        add("| Seed | real-only | +v1 | +v2 | +distill | D(+v2) | D(+distill) |")
+        add("|---|---|---|---|---|---|---|")
+        for row in block["rows"]:
+            add("| %d | %s | %s | %s | %s | %s | %s |"
+                % (row["seed"], _fmt(row["real_only_hot"]),
+                   _fmt(row["v1_hot"]), _fmt(row["v2_hot"]),
+                   _fmt(row["distill_hot"]), _signed(row["delta_v2_hot"]),
+                   _signed(row["delta_distill_hot"])))
+        add("| **mean [min, max]** | | | | | **%s [%s, %s]** | **%s [%s, %s]** |"
+            % (_signed(summary["v2"]["hot"]["mean"]),
+               _signed(summary["v2"]["hot"]["min"]),
+               _signed(summary["v2"]["hot"]["max"]),
+               _signed(summary[DISTILL_VARIANT]["hot"]["mean"]),
+               _signed(summary[DISTILL_VARIANT]["hot"]["min"]),
+               _signed(summary[DISTILL_VARIANT]["hot"]["max"])))
+        add("")
+        if verdict:
+            add("Tier (%s): **%s** -- %s." % (fs, verdict["tier"], verdict["reason"]))
+        else:
+            add("Tier (%s): n/a." % fs)
+        add("")
+    add("### Seed-robustness verdict")
+    add("")
+    add(_overall_seed_verdict(robust, cfg))
+    add("")
+    return lines
+
+
 def render_markdown(payload: Dict[str, Any]) -> str:
-    """Render ``RESULTS_v2.md`` (Tables A/B/C/D + verdict) from the payload."""
+    """Render ``RESULTS_v2.md`` (Tables A/B/C/D/E + verdict) from the payload."""
     cfg = payload["config"]
     prov = payload["provenance"]
     split = payload["split"]
@@ -883,7 +1120,10 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("(bootstrap pool = `%s`)." % cfg["bootstrap_pool"])
     add("")
 
-    add("## 5. Reproduce")
+    if payload.get("seed_robustness"):
+        lines.extend(_render_seed_robustness(payload["seed_robustness"], cfg))
+
+    add("## 6. Reproduce")
     add("")
     add("```bash")
     add("python -m leads.personas --n %d --seed %d --generator v2 "
@@ -941,46 +1181,27 @@ def _verdict(payload: Dict[str, Any]) -> str:
 # --------------------------------------------------------------------------- #
 # MAIN
 # --------------------------------------------------------------------------- #
-def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Evaluate synthetic augmentation (leakage-safe protocol)")
-    parser.add_argument("--n", type=int, default=1000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--model", default="rf",
-                        choices=["rf", "logreg", "dummy"])
-    parser.add_argument("--bootstrap-pool", choices=list(BOOTSTRAP_POOLS),
-                        default="train",
-                        help="'train' (default, leakage-safe) fits the label "
-                             "model and bootstraps from the train rows only; "
-                             "'all' fits and bootstraps from every labelled "
-                             "row (legacy, leaks the holdout)")
-    parser.add_argument("--no-engagement", action="store_true",
-                        help="evaluate only the no-engagement feature set")
-    parser.add_argument("--out", type=Path,
-                        default=PROJECT_ROOT / "leads" / "RESULTS_v2.md")
-    parser.add_argument("--artifacts", type=Path,
-                        default=PROJECT_ROOT / "artifacts")
-    args = parser.parse_args(argv)
+def _pipeline_for_seed(seed: int, real_df, provenance: str, args,
+                       feature_sets) -> Dict[str, Any]:
+    """Run the full protocol once for one seed and return its payload.
 
+    The same ``seed`` drives the train/holdout split, the CounsellorLabelModel
+    fit and the v1/v2 generators, so a seed change perturbs the whole pipeline.
+    The learner seed inside ``make_model`` stays fixed at 42.
+    """
     from datetime import datetime
 
-    real_df, provenance = load_real_frame()
     split = split_labeled_rows(real_df, test_size=1.0 - TRAIN_FRACTION,
-                               random_state=SPLIT_SEED)
+                               random_state=seed)
     n_real = int(len(split["aligned"]))
-    feature_sets = ("no-engagement",) if args.no_engagement else FEATURE_SETS
 
-    print("=" * 70)
-    print("AUGMENTATION EVALUATION - leakage-safe protocol")
-    print("=" * 70)
-    print("Real rows: %d (%s)" % (n_real, provenance))
-    print("Split (seed=%d): train=%d holdout=%d"
-          % (split["seed"], split["n_train"], split["n_holdout"]))
-    print("Bootstrap pool: %s" % args.bootstrap_pool)
+    print("-" * 70)
+    print("SEED %d: split seed=%d -> train=%d holdout=%d"
+          % (seed, split["seed"], split["n_train"], split["n_holdout"]))
     print("Generating v1 and v2 corpora (n=%d, seed=%d) ..."
-          % (args.n, args.seed))
+          % (args.n, seed))
     corpora, label_model, v1_meta, v2_meta = generate_corpora(
-        args.n, args.seed, split, args.bootstrap_pool)
+        args.n, seed, split, args.bootstrap_pool)
     leakage = leakage_report(split, corpora["v2"])
     print("v1 persona counts: %s" % dict(v1_meta["persona_counts"]))
     print("v2 label counts:   %s" % dict(v2_meta["label_counts"]))
@@ -997,7 +1218,8 @@ def main(argv: Optional[List[str]] = None) -> int:
           % (args.model, ", ".join(feature_sets)))
     results = run_experiments(real_df, corpora, args.model,
                               feature_sets=feature_sets, split=split,
-                              label_model=label_model)
+                              label_model=label_model,
+                              split_random_state=seed)
 
     # The evaluation holdout must be exactly the protocol holdout.
     gen0 = results[feature_sets[0]]["generators"]["v1"]["generalization"] or {}
@@ -1010,11 +1232,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print("Computing label agreement (train-fitted label model) ...")
     agreement = label_agreement(split["aligned"], corpora, label_model)
-
     ci_payload = bootstrap_cis({"results": results})
-    payload = {
+
+    return {
         "config": {
-            "n": args.n, "seed": args.seed, "model": args.model,
+            "n": args.n, "seed": seed, "model": args.model,
             "bootstrap_pool": args.bootstrap_pool,
             "feature_sets": list(feature_sets),
         },
@@ -1037,26 +1259,92 @@ def main(argv: Optional[List[str]] = None) -> int:
         "label_agreement": agreement,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
     }
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Evaluate synthetic augmentation (leakage-safe protocol)")
+    parser.add_argument("--n", type=int, default=1000)
+    parser.add_argument("--seed", type=int, default=42,
+                        help="single-seed mode (kept for backward compatibility)")
+    parser.add_argument("--seeds", default=None,
+                        help="comma-separated seed list, e.g. '1,7,42'; each "
+                             "seed drives the split AND the generators. "
+                             "Overrides --seed when given.")
+    parser.add_argument("--model", default="rf",
+                        choices=["rf", "logreg", "dummy"])
+    parser.add_argument("--bootstrap-pool", choices=list(BOOTSTRAP_POOLS),
+                        default="train",
+                        help="'train' (default, leakage-safe) fits the label "
+                             "model and bootstraps from the train rows only; "
+                             "'all' fits and bootstraps from every labelled "
+                             "row (legacy, leaks the holdout)")
+    parser.add_argument("--no-engagement", action="store_true",
+                        help="evaluate only the no-engagement feature set")
+    parser.add_argument("--out", type=Path,
+                        default=PROJECT_ROOT / "leads" / "RESULTS_v2.md")
+    parser.add_argument("--artifacts", type=Path,
+                        default=PROJECT_ROOT / "artifacts")
+    args = parser.parse_args(argv)
+    seeds = parse_seeds(args.seeds) if args.seeds else [int(args.seed)]
+    feature_sets = ("no-engagement",) if args.no_engagement else FEATURE_SETS
+
+    print("=" * 70)
+    print("AUGMENTATION EVALUATION - leakage-safe protocol")
+    print("=" * 70)
+    real_df, provenance = load_real_frame()
+    from leads.train_ml import align_schema as _align
+    print("Real rows: %d labelled of %d loaded (%s)"
+          % (len(_align(real_df)), len(real_df), provenance))
+    print("Seeds: %s (each drives the split AND the generators)" % seeds)
+    print("Bootstrap pool: %s" % args.bootstrap_pool)
+
+    per_seed: Dict[int, Dict[str, Any]] = {}
+    for seed in seeds:
+        per_seed[seed] = _pipeline_for_seed(
+            seed, real_df, provenance, args, feature_sets)
+
+    payload = per_seed[seeds[0]]
+    robust = seed_robustness(per_seed, feature_sets)
+    payload["seed_robustness"] = robust
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(render_markdown(payload), encoding="utf-8")
     args.artifacts.mkdir(parents=True, exist_ok=True)
-    (args.artifacts / "eval_augmentation.json").write_text(
+    # Persist the computed payload FIRST: a rendering failure must never lose
+    # 12+ minutes of sweep compute (this is exactly how the earlier run died).
+    payload_path = args.artifacts / "eval_augmentation.json"
+    payload_path.write_text(
         json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    robust_path = args.artifacts / "eval_augmentation_seed_robustness.json"
+    if len(seeds) > 1:
+        robust_path.write_text(
+            json.dumps({"config": payload["config"],
+                        "seed_robustness": robust},
+                       indent=2, default=str), encoding="utf-8")
+    try:
+        args.out.write_text(render_markdown(payload), encoding="utf-8")
+    except Exception as exc:  # rendering is best-effort; artifacts are safe
+        print("WARNING: markdown render failed (%s: %s); payload already "
+              "written to %s" % (type(exc).__name__, exc, payload_path),
+              file=sys.stderr)
 
     for fs in feature_sets:
-        entry = results[fs]
-        print("\n[%s] real-holdout macro F1 = %s"
-              % (fs, _fmt(entry["real_only"]["holdout_macro_f1"])))
+        entry = payload["results"][fs]
+        print("\n[%s] real-holdout macro F1 = %s (seed %d)"
+              % (fs, _fmt(entry["real_only"]["holdout_macro_f1"]),
+                 payload["config"]["seed"]))
         for gen in AUGMENT_VARIANTS:
             gr = entry["generators"][gen]["generalization"] or {}
-            tag = "distill" if gen == DISTILL_VARIANT else gen
             print("   +%-8s headline=%s holdout=%s delta=%s"
                   % (gen, _fmt(entry["generators"][gen]["headline_macro_f1"]),
                      _fmt(_holdout_f1(entry, gen)),
                      _signed(gr.get("delta_macro_f1"))))
     print("\n" + _verdict(payload))
+    if len(seeds) > 1:
+        print(_overall_seed_verdict(robust, payload["config"]))
     print("\nWrote: %s" % args.out)
     print("Wrote: %s" % (args.artifacts / "eval_augmentation.json"))
+    if len(seeds) > 1:
+        print("Wrote: %s" % robust_path)
     print("=" * 70)
     return 0
 

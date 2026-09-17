@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import warnings
 from pathlib import Path
@@ -253,6 +254,20 @@ def build_matrix(
 # --------------------------------------------------------------------------- #
 # MODELS
 # --------------------------------------------------------------------------- #
+def _n_jobs() -> int:
+    """Joblib parallelism for the forest, overridable for long sweeps.
+
+    ``LEADS_N_JOBS=1`` avoids spawning/reusing a loky worker pool across the
+    dozens of fits in a multi-seed sweep (the pool can wedge on Windows when
+    many short fits are queued back to back). Defaults to -1 (all cores).
+    """
+    raw = os.environ.get("LEADS_N_JOBS", "")
+    try:
+        return int(raw)
+    except ValueError:
+        return -1
+
+
 def make_model(kind: str):
     """Build a classifier. ``class_weight='balanced'`` handles the thin Hot class."""
     if kind == "logreg":
@@ -266,7 +281,7 @@ def make_model(kind: str):
     if kind == "rf":
         return RandomForestClassifier(
             n_estimators=500, max_depth=None, min_samples_leaf=3,
-            class_weight="balanced", n_jobs=-1, random_state=RANDOM_STATE,
+            class_weight="balanced", n_jobs=_n_jobs(), random_state=RANDOM_STATE,
         )
     if kind == "dummy":
         return DummyClassifier(strategy="most_frequent")
@@ -326,11 +341,11 @@ def feature_importances(model, feature_names: List[str]) -> Dict[str, float]:
 # EXPERIMENTS
 # --------------------------------------------------------------------------- #
 def experiment_combined(combined, ablate_english, model_kind, test_size=0.2,
-                        no_engagement=False):
+                        no_engagement=False, random_state=RANDOM_STATE):
     """Headline result (H2): train on combined, test on a combined holdout."""
     X, y, feats = build_matrix(combined, ablate_english, no_engagement)
     X_tr, X_te, y_tr, y_te = train_test_split(
-        X, y, test_size=test_size, stratify=y, random_state=RANDOM_STATE,
+        X, y, test_size=test_size, stratify=y, random_state=random_state,
     )
     model, metrics = fit_and_eval(model_kind, X_tr, y_tr, X_te, y_te)
     metrics["n_train"] = int(len(y_tr))
@@ -359,11 +374,17 @@ def split_real_indices(real_frame, test_size=0.2,
 
 
 def experiment_generalization(combined, ablate_english, model_kind, test_size=0.2,
-                              no_engagement=False):
+                              no_engagement=False,
+                              split_random_state=RANDOM_STATE):
     """Does synthetic augmentation improve performance on **real** leads?
 
     Splits the real rows into train/test. Model A sees real-train only; Model B
-    sees real-train + all synthetic. Both are scored on the same real holdout.
+    trains on real-train + all synthetic. Both are scored on the same holdout.
+
+    ``split_random_state`` lets a caller drive the split from its own protocol
+    seed (``leads.eval_augmentation`` does this so the holdout is identical to
+    the protocol holdout for *every* seed in a seed-robustness sweep). It
+    defaults to ``RANDOM_STATE`` so existing callers are unchanged.
     """
     real = combined[combined[SOURCE] == "real"].reset_index(drop=True)
     synth = combined[combined[SOURCE] == "synthetic"].reset_index(drop=True)
@@ -375,7 +396,8 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
     # Align synthetic one-hot columns onto the real feature space
     X_syn = X_syn.reindex(columns=feats, fill_value=0.0)
 
-    tr_idx, te_idx = split_real_indices(real, test_size=test_size)
+    tr_idx, te_idx = split_real_indices(
+        real, test_size=test_size, random_state=split_random_state)
     X_rtr, X_rte = X_real.iloc[tr_idx], X_real.iloc[te_idx]
     y_rtr, y_rte = y_real[tr_idx], y_real[te_idx]
 
