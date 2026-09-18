@@ -11,6 +11,7 @@ Conventions (same as leads.rubric / leads.personas):
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -19,6 +20,8 @@ DEFAULT_MODELS_DIR = PROJECT_ROOT / "models"
 
 COLD, WARM, HOT = 0, 1, 2
 LABEL_NAMES = ("Cold", "Warm", "Hot")
+
+logger = logging.getLogger(__name__)
 
 
 def _clip01(x: float) -> float:
@@ -103,7 +106,73 @@ def _accuracy(y_true: Sequence[int], y_pred: Sequence[int]) -> float:
     return sum(1 for t, p in zip(y_true, y_pred) if t == p) / len(y_true)
 
 
+def calibrate_alpha_kfold(
+    train_features,
+    rule_scores,
+    y_train,
+    alphas=None,
+    n_splits: int = 5,
+    random_state: int = 42,
+    n_estimators: int = 300,
+) -> Dict[str, Any]:
+    """Calibrate alpha with 5-fold OOF ML scores on TRAIN rows only.
+
+    Holdout rule: the 173-row holdout must never be indexed, sliced, or
+    passed into this function. Pass the 688 training rows only.
+    Runs StratifiedKFold(n_splits=5, shuffle=True, random_state=42);
+    each fold fits RandomForestClassifier(n_estimators=300,
+    class_weight="balanced", random_state=42, n_jobs=1) on 4/5 and takes
+    predict_proba on 1/5; OOF rows pool to 688 ml_proba rows, mapped to
+    scalar ML scores, then swept over alpha in {0.0..1.0} by macro F1.
+    Returns calibrate_alpha result plus {"oof_ml_scores", "n_train"}.
+    """
+    import numpy as np
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import StratifiedKFold
+
+    try:
+        X = np.asarray(train_features, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"train_features must be numeric 2D: {exc}")
+    if X.ndim != 2 or X.shape[0] == 0:
+        raise ValueError("train_features must be a non-empty 2D matrix")
+    yt = [int(v) for v in list(y_train)]
+    rs = [_clip01(v) for v in list(rule_scores)]
+    if not (X.shape[0] == len(yt) == len(rs)):
+        raise ValueError("train_features, rule_scores, y_train must align")
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    n_classes = 3
+    oof = np.zeros((len(yt), n_classes))
+    for tr_idx, va_idx in skf.split(X, yt):
+        clf = RandomForestClassifier(n_estimators=n_estimators,
+                                     class_weight="balanced",
+                                     random_state=random_state, n_jobs=1)
+        clf.fit(X[tr_idx], [yt[i] for i in tr_idx])
+        proba = clf.predict_proba(X[va_idx])
+        classes = list(clf.classes_)
+        for row, probs in zip(va_idx, proba):
+            for c, p in zip(classes, probs):
+                oof[row, int(c)] = float(p)
+    ml_scores = [ml_proba_to_score([float(v) for v in row]) for row in oof.tolist()]
+    out = calibrate_alpha(yt, rs, ml_scores, alphas=alphas)
+    out["oof_ml_scores"] = ml_scores
+    out["n_train"] = len(yt)
+    return out
+
+
 def calibrate_alpha(y_true, rule_scores, ml_scores, alphas=None) -> Dict[str, Any]:
+    """Grid-search alpha on labelled TRAIN-ONLY validation data (macro F1).
+
+    Holdout rule: the 173-row holdout must never be indexed, sliced, or
+    passed into this function. Pass train rows (688) only; callers that
+    need fold-based ML scores should use calibrate_alpha_kfold below.
+    Primary objective is macro F1 (accuracy misleads: Warm dominates with
+    426 rows, so a Warm-only predictor looks fine); MAE breaks F1 ties.
+    Returns {"best_alpha", "best_macro_f1", "best_accuracy", "results"}.
+    Each results row: {"alpha", "macro_f1", "accuracy", "mae"}.
+    """
+    from sklearn.metrics import accuracy_score, f1_score
+
     yt = [int(v) for v in list(y_true)]
     rs = [_clip01(v) for v in list(rule_scores)]
     ms = [_coerce_ml_score(v) for v in list(ml_scores)]
@@ -123,37 +192,42 @@ def calibrate_alpha(y_true, rule_scores, ml_scores, alphas=None) -> Dict[str, An
     for a in grid:
         blended = [a * r + (1.0 - a) * m for r, m in zip(rs, ms)]
         preds = [name_to_id[score_to_label(s)] for s in blended]
-        acc = _accuracy(yt, preds)
+        f1 = float(f1_score(yt, preds, average="macro", zero_division=0))
+        acc = float(accuracy_score(yt, preds))
         mae = sum(abs(s - (t / 2.0)) for s, t in zip(blended, yt)) / len(yt)
-        results.append({"alpha": a, "accuracy": acc, "mae": mae})
-    results.sort(key=lambda d: (-d["accuracy"], d["mae"], d["alpha"]))
+        results.append({"alpha": a, "macro_f1": f1, "accuracy": acc, "mae": mae})
+    results.sort(key=lambda d: (-d["macro_f1"], d["mae"], d["alpha"]))
     best = results[0]
-    return {"best_alpha": best["alpha"], "best_accuracy": best["accuracy"],
-            "results": results}
+    return {"best_alpha": best["alpha"], "best_macro_f1": best["macro_f1"],
+            "best_accuracy": best["accuracy"], "results": results}
 
 
 def load_artifacts(models_dir=None) -> Dict[str, Any]:
+    """Load saved ML artifacts if present; warn per missing file, never raise."""
     base = Path(models_dir) if models_dir is not None else DEFAULT_MODELS_DIR
     out: Dict[str, Any] = {"models_dir": str(base), "files": {}}
-    candidates = {"model": "lead_model.pkl", "metrics": "metrics.json",
-                  "feature_importance": "feature_importance.json",
-                  "config": "config.json"}
-    for key, fname in candidates.items():
+    pkl_path = base / "lead_model.pkl"
+    if not pkl_path.is_file():
+        logger.warning("load_artifacts: ML model missing at %s — returning rule-only config", pkl_path)
+    else:
+        try:
+            import pickle
+            with open(pkl_path, "rb") as fh:
+                out["model"] = pickle.load(fh)
+            out["files"]["model"] = str(pkl_path)
+        except Exception:
+            logger.warning("load_artifacts: ML model unreadable at %s — returning rule-only config", pkl_path)
+    for key, fname in (("metrics", "metrics.json"),
+                       ("feature_importance", "feature_importance.json"),
+                       ("config", "config.json")):
         fp = base / fname
         if not fp.is_file():
+            logger.warning("load_artifacts: %s missing at %s — returning rule-only config", key, fp)
             continue
-        if fp.suffix == ".json":
-            try:
-                out[key] = json.loads(fp.read_text(encoding="utf-8"))
-                out["files"][key] = str(fp)
-            except (OSError, ValueError):
-                continue
-        elif fp.suffix == ".pkl":
-            try:
-                import pickle
-                with open(fp, "rb") as fh:
-                    out[key] = pickle.load(fh)
-                out["files"][key] = str(fp)
-            except Exception:
-                continue
+        try:
+            out[key] = json.loads(fp.read_text(encoding="utf-8"))
+            out["files"][key] = str(fp)
+        except (OSError, ValueError):
+            logger.warning("load_artifacts: %s unreadable at %s — returning rule-only config", key, fp)
+            continue
     return out
