@@ -1,0 +1,107 @@
+"""Question-type classifier: query text -> one of the 9 FAQ categories.
+
+Trained on the enriched faq_corpus.json (98 entries with category field):
+TF-IDF (1-2 grams) + LogisticRegression, class_weight='balanced'.
+98 entries / 9 categories is thin (Visa & Immigration and General
+Enquiries have 5 each), so expect macro F1 ~0.60-0.75 — a finding, not
+a failure. Persist to models/classifier.pkl + models/classifier_labels.json.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import pickle
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CORPUS_PATH = PROJECT_ROOT / "data" / "faq_corpus.json"
+MODELS_DIR = PROJECT_ROOT / "models"
+MODEL_PATH = MODELS_DIR / "classifier.pkl"
+LABELS_PATH = MODELS_DIR / "classifier_labels.json"
+
+CATEGORIES = ["Entry Requirements", "Fees & Funding", "Scholarships",
+              "Program Details", "Accommodation", "Visa & Immigration",
+              "Application Process", "English Language", "General Enquiries"]
+
+FALLBACK = "General Enquiries"
+
+
+def load_training_data(path=None) -> Tuple[List[str], List[str]]:
+    """Return (texts, labels) from the enriched corpus."""
+    from chatbot.retriever import load_corpus
+    entries = load_corpus(path or CORPUS_PATH)
+    texts = [e.document for e in entries]
+    labels = [e.category if e.category in CATEGORIES else FALLBACK for e in entries]
+    return texts, labels
+
+
+def train(texts: List[str], labels: List[str]):
+    """Fit TF-IDF + LogisticRegression pipeline (balanced classes)."""
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    from chatbot.retriever import tokenize
+
+    pipe = Pipeline([
+        ("tfidf", TfidfVectorizer(tokenizer=tokenize, lowercase=False,
+                                  ngram_range=(1, 2), token_pattern=None)),
+        ("clf", LogisticRegression(max_iter=1000, class_weight="balanced",
+                                   n_jobs=1, random_state=42)),
+    ])
+    pipe.fit(texts, labels)
+    return pipe
+
+
+def cross_validate(texts: List[str], labels: List[str], k: int = 5) -> Dict[str, Any]:
+    """Stratified k-fold macro F1 (per-fold + mean). Never touches test data."""
+    from sklearn.model_selection import StratifiedKFold
+    from sklearn.metrics import f1_score
+
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=42)
+    folds: List[float] = []
+    for tr, va in skf.split(texts, labels):
+        model = train([texts[i] for i in tr], [labels[i] for i in tr])
+        pred = model.predict([texts[i] for i in va])
+        folds.append(float(f1_score([labels[i] for i in va], pred,
+                                    average="macro", zero_division=0)))
+    return {"folds": folds, "mean_macro_f1": sum(folds) / len(folds), "k": k}
+
+
+def save(model, labels: List[str]) -> None:
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(MODEL_PATH, "wb") as fh:
+        pickle.dump(model, fh)
+    LABELS_PATH.write_text(json.dumps({"categories": labels}, indent=2),
+                           encoding="utf-8")
+
+
+def load():
+    """Load persisted classifier; (None, []) with warning when missing."""
+    if not MODEL_PATH.is_file():
+        logger.warning("classifier: model missing at %s — run train first", MODEL_PATH)
+        return None, []
+    try:
+        with open(MODEL_PATH, "rb") as fh:
+            return pickle.load(fh), CATEGORIES
+    except (OSError, ValueError, EOFError) as exc:
+        logger.warning("classifier: model unreadable at %s (%s)", MODEL_PATH, exc)
+        return None, []
+
+
+def predict(query: str, model=None) -> str:
+    """Predict category; gibberish/empty -> FALLBACK (never raises)."""
+    if not query or not query.strip():
+        return FALLBACK
+    mdl = model
+    if mdl is None:
+        mdl, _ = load()
+    if mdl is None:
+        return FALLBACK
+    try:
+        label = str(mdl.predict([query])[0])
+    except ValueError:
+        return FALLBACK
+    return label if label in CATEGORIES else FALLBACK

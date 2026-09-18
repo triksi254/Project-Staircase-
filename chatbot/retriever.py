@@ -37,6 +37,8 @@ class FaqEntry:
     answer: str
     keywords: List[str] = field(default_factory=list)
     index: int = 0
+    category: str = "General Enquiries"
+    institution: str = "General"
 
     @property
     def document(self) -> str:
@@ -67,7 +69,9 @@ def load_corpus(path=None) -> List[FaqEntry]:
             continue
         kw = item.get("keywords", [])
         out.append(FaqEntry(question=q, answer=a,
-                            keywords=[str(k) for k in kw if k], index=i))
+                            keywords=[str(k) for k in kw if k], index=i,
+                            category=str(item.get("category", "General Enquiries")),
+                            institution=str(item.get("institution", "General"))))
     if not out:
         logger.warning("retriever: corpus at %s yielded 0 usable FAQs", fp)
     return out
@@ -79,8 +83,25 @@ class Retriever:
         self.entries = list(entries)
         self._vectorizer: Any = None
         self._matrix: Any = None
+        self._fit_count = 0
         if self.entries:
             self._build_index()
+
+    def _persist(self) -> None:
+        """Cache vectorizer + matrix so re-init loads instead of refits."""
+        try:
+            import pickle
+            cache = PROJECT_ROOT / "data" / "tfidf_vectorizer.pkl"
+            mat = PROJECT_ROOT / "data" / "tfidf_matrix.npy"
+            with open(cache, "wb") as fh:
+                pickle.dump(self._vectorizer, fh)
+            try:
+                import numpy as np
+                np.save(mat, self._matrix.toarray())
+            except ImportError:
+                pass
+        except OSError as exc:
+            logger.warning("retriever: persist failed (%s)", exc)
 
     def _build_index(self) -> None:
         try:
@@ -94,6 +115,8 @@ class Retriever:
                                                lowercase=False, ngram_range=(1, 2),
                                                token_pattern=None)
             self._matrix = self._vectorizer.fit_transform(docs)
+            self._fit_count = 1
+            self._persist()
         except ValueError as exc:
             logger.warning("retriever: TF-IDF build failed (%s) — fallback", exc)
             self._vectorizer, self._matrix = None, None

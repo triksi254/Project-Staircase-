@@ -1,6 +1,7 @@
 """Tests for the chatbot retrieval layer (grounded, abstaining)."""
 from chatbot.responder import EscalationPolicy, respond
 from chatbot.retriever import FaqEntry, Retriever, load_corpus, tokenize
+from leads.hybrid import score_to_label
 
 
 def _toy() -> Retriever:
@@ -67,3 +68,33 @@ def test_hot_lead_escalates_with_priority():
     assert out["lead_label"] == "Hot"
     assert out["escalate"] is True
     assert out["priority"] == "high"
+
+
+def test_escalation_matches_label_boundary():
+    # score_to_label tertiles: Cold < 1/3, Warm < 2/3, Hot >= 2/3.
+    assert score_to_label(2.0 / 3.0) == "Hot"
+    assert score_to_label(0.66) == "Warm"
+    out = respond("student visa CAS", _toy(), rule_score=2.0 / 3.0,
+                  ml_score=2.0 / 3.0)
+    assert out["lead_label"] == "Hot"
+    assert out["priority"] == "high"
+    assert out["escalate"] is True
+    warm = respond("student visa CAS", _toy(), rule_score=0.5, ml_score=0.5)
+    assert warm["lead_label"] == "Warm"
+    assert warm["priority"] != "high"
+
+
+def test_two_retrievers_agree():
+    entries = load_corpus()
+    r1, r2 = Retriever(entries), Retriever(entries)
+    q = "Do international students need a visa?"
+    assert [e.question for e, _ in r1.search(q)] == [e.question for e, _ in r2.search(q)]
+    assert [s for _, s in r1.search(q)] == [s for _, s in r2.search(q)]
+
+
+def test_respond_returns_category_and_institution():
+    entries = load_corpus()
+    out = respond("Do international students need a visa?", Retriever(entries),
+                  rule_score=0.5, ml_score=0.5)
+    assert out["category"] == "Visa & Immigration"
+    assert out["institution"] in ("General", "USW", "Aston")

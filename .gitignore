@@ -42,6 +42,13 @@ scratch/
 # appendix artifacts.
 artifacts/*.pkl
 
+# Generated ML / retrieval caches (rebuilt by tests; keep repo lean).
+data/tfidf_vectorizer.pkl
+data/tfidf_matrix.npy
+data/faq_corpus.bak.json
+models/classifier.pkl
+models/lead_model.pkl
+
 # IDE / OS
 .vscode/
 .idea/
