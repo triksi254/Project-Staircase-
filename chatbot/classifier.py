@@ -105,3 +105,46 @@ def predict(query: str, model=None) -> str:
     except ValueError:
         return FALLBACK
     return label if label in CATEGORIES else FALLBACK
+
+
+def cv_report(texts, labels, k=5):
+    """Per-fold diagnostic: support, per-class F1, macro F1. No model change."""
+    from collections import Counter
+    from sklearn.metrics import f1_score
+    from sklearn.model_selection import StratifiedKFold
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=42)
+    folds = []
+    for i, (tr, va) in enumerate(skf.split(texts, labels)):
+        model = train([texts[j] for j in tr], [labels[j] for j in tr])
+        y_va = [labels[j] for j in va]
+        pred = list(model.predict([texts[j] for j in va]))
+        labs = sorted(set(labels))
+        f1s = f1_score(y_va, pred, labels=labs, average=None, zero_division=0)
+        sup = Counter(y_va)
+        macro = float(sum(f1s) / len(f1s))
+        print(f"fold {i}: n_val={len(va)} macro_f1={macro:.4f}")
+        for lab, f1 in zip(labs, f1s):
+            print(f"  {lab}: support={sup.get(lab, 0)} f1={float(f1):.4f}")
+        folds.append({"fold": i, "n_val": len(va),
+                      "support": {lab: int(sup.get(lab, 0)) for lab in labs},
+                      "per_class_f1": {lab: float(f1) for lab, f1 in zip(labs, f1s)},
+                      "macro_f1": macro})
+    return {"k": k, "folds": folds}
+
+
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description="Question-type classifier")
+    ap.add_argument("--cv-verbose", action="store_true")
+    ap.add_argument("--k", type=int, default=5)
+    args = ap.parse_args(argv)
+    texts, labels = load_training_data()
+    out = cv_report(texts, labels, k=args.k)
+    if not args.cv_verbose:
+        mean = sum(f["macro_f1"] for f in out["folds"]) / len(out["folds"])
+        print(f"mean macro F1: {mean:.4f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
