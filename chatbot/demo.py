@@ -63,6 +63,7 @@ def run_demo(
     ml_proba: Optional[List[float]] = None,
     alpha: Optional[float] = None,
     k: int = 3,
+    min_confidence: Optional[float] = None,
 ) -> Dict[str, Any]:
     from chatbot.responder import EscalationPolicy, respond
     from chatbot.retriever import Retriever, load_corpus
@@ -74,13 +75,16 @@ def run_demo(
     if ml_proba is not None:
         ml_score = ml_proba_to_score(ml_proba)
     retriever = Retriever(load_corpus())
-    policy = EscalationPolicy(alpha=alpha)
+    defaults = EscalationPolicy()
+    # min_confidence gates the top-1 retrieval similarity inside respond();
+    # it is a retrieval-quality signal, independent of the lead score.
+    gate = defaults.min_confidence if min_confidence is None else min_confidence
     # Pass the pre-combined hybrid as rule_score with alpha=1 so respond()
     # does not re-blend; escalation/labels still come from score_to_label.
     pre = hybrid_score(rule, ml_score, alpha)
     result = respond(query, retriever, rule_score=pre, ml_score=None,
-                     policy=EscalationPolicy(min_confidence=policy.min_confidence,
-                                             hot_threshold=policy.hot_threshold,
+                     policy=EscalationPolicy(min_confidence=gate,
+                                             hot_threshold=defaults.hot_threshold,
                                              alpha=1.0), top_k=k)
     label = score_to_label(float(result.get("lead_score", pre)))
     cands = result.get("candidates", [])[:k]
@@ -105,6 +109,7 @@ def run_demo(
         "label": label,
         "escalate": bool(result.get("escalate", False)),
         "priority": result.get("priority"),
+        "min_confidence": gate,
         "response": resp,
         "candidates": [
             {"score": float(c.get("score", 0.0)), "question": c.get("question", "")}
@@ -113,8 +118,10 @@ def run_demo(
     }
 
 
-def format_human(out: Dict[str, Any], threshold: float = 0.60) -> str:
+def format_human(out: Dict[str, Any]) -> str:
+    """Render ``out``. The threshold shown is the one actually applied."""
     ml_txt = "rule-only" if out["ml_proba"] is None else "ml-blend"
+    threshold = float(out.get("min_confidence", 0.0))
     lines = [
         BAR,
         f"  Query:    {out['query']}",
@@ -147,13 +154,19 @@ def main(argv=None) -> int:
     ap.add_argument("--ml-proba", type=str, default=None)
     ap.add_argument("--alpha", type=float, default=None)
     ap.add_argument("--k", type=int, default=3)
+    ap.add_argument("--min-confidence", type=float, default=None,
+                    help="retrieval-confidence gate for abstention "
+                         "(default: EscalationPolicy.min_confidence = 0.15)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     if not 0.0 <= args.rule <= 1.0:
         raise SystemExit("--rule must be in [0, 1]")
+    if args.min_confidence is not None and not 0.0 <= args.min_confidence <= 1.0:
+        raise SystemExit("--min-confidence must be in [0, 1]")
     ml_proba = _parse_ml_proba(args.ml_proba)
     out = run_demo(args.query, rule=args.rule, ml_proba=ml_proba,
-                   alpha=args.alpha, k=args.k)
+                   alpha=args.alpha, k=args.k,
+                   min_confidence=args.min_confidence)
     if args.json:
         print(json.dumps(out, indent=2))
     else:

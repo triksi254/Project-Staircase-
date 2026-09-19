@@ -2,9 +2,30 @@
 
 Policy: answer from the top-ranked FAQ (with its corpus question cited so
 replies stay grounded); retrieval confidence below ``min_confidence``
-yields an abstention + escalation instead of a guess. Hot leads
-(hybrid_score >= ``hot_threshold``) always escalate with priority so a
-counsellor follows up, even when the answer itself is confident.
+yields an abstention + escalation instead of a guess. Hot leads always
+escalate with priority so a counsellor follows up, even when the answer
+itself is confident.
+
+Two signals are deliberately separate and must not be conflated:
+
+* ``confidence`` is the **retrieval** score: the top-1 similarity returned
+  by ``Retriever.search`` (TF-IDF cosine in [0, 1]). It is compared against
+  ``EscalationPolicy.min_confidence`` on every path, including when a top-1
+  hit exists, and drives abstention vs grounded answer.
+* ``lead_score`` / ``lead_label`` is the **lead** score: ``hybrid_score``
+  of the rule and ML components, mapped to Cold/Warm/Hot by
+  ``score_to_label``. It drives counsellor escalation, not abstention.
+
+Consequence: a confident-looking answer may still be an abstention if the
+retrieval similarity is below the gate, and a well-grounded answer may still
+escalate if the lead is Hot. ``min_confidence`` therefore gates retrieval
+quality only -- it is *not* a threshold on the lead score.
+
+Hot classification is delegated to ``score_to_label`` (tertile cut, i.e.
+``lead_score >= 2/3``). ``EscalationPolicy.hot_threshold`` is kept for
+callers, serialisation, and display; to avoid silent divergence it must
+equal that tertile cut. ``respond`` reads ``min_confidence`` and ``alpha``
+from the policy but derives Hot/Warm/Cold from ``score_to_label``.
 """
 from __future__ import annotations
 
