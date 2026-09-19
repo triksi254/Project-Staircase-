@@ -1,0 +1,19 @@
+# Optional ML stack - NOT required by the scraper, the lead-scoring pipeline,
+# the TF-IDF chatbot baseline, or the test suite. Only needed for
+# chatbot/embeddings.py (Sentence-BERT retrieval, the H1 semantic arm).
+#
+# Install:  pip install -r requirements-ml.txt
+#
+# Verified on Python 3.14.6 / Windows: every dependency resolves to a wheel
+# (torch-2.14.0 cp314, tokenizers-0.23.2 cp310-abi3, faiss-cpu cp314) so no
+# Rust or C++ toolchain is required. Use --only-binary=:all: to fail fast
+# rather than attempting a source build:
+#
+#   pip install --only-binary=:all: -r requirements-ml.txt
+#
+# torch is a ~124 MB download; the first model use also fetches ~91 MB
+# (all-MiniLM-L6-v2) into the HuggingFace cache.
+
+torch>=2.2
+transformers>=5.0
+sentence-transformers>=3.0

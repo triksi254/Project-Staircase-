@@ -60,11 +60,16 @@ def load_gold(path) -> List[Dict[str, Any]]:
 
 
 def raw_cosine(retriever, query: str) -> Optional[float]:
-    """Pure top-1 TF-IDF cosine with no keyword bonus; None if unavailable.
+    """Pure top-1 cosine with no keyword bonus; None if unavailable.
 
-    None when the retriever has no fitted vectorizer (keyword fallback active,
-    or an injected stub), so callers must treat it as missing, not zero.
+    Prefers a retriever-provided ``raw_top1_cosine`` hook (the SBERT retriever
+    implements it), then falls back to the TF-IDF vectorizer. None when the
+    retriever exposes neither, so callers must treat it as missing, not zero.
     """
+    hook = getattr(retriever, "raw_top1_cosine", None)
+    if callable(hook):
+        value = hook(query)
+        return None if value is None else round(float(value), 4)
     vectorizer = getattr(retriever, "_vectorizer", None)
     matrix = getattr(retriever, "_matrix", None)
     if vectorizer is None or matrix is None or not str(query).strip():
@@ -93,10 +98,23 @@ def _r4(value: float) -> float:
     return round(float(value), 4)
 
 
-def build_retriever(corpus_path=None):
-    """Build a live Retriever over the corpus (default data/faq_corpus.json)."""
+def build_retriever(kind: str = "tfidf", corpus_path=None):
+    """Build a retriever over the corpus.
+
+    ``kind`` is ``tfidf`` (chatbot.retriever, the baseline) or ``sbert``
+    (chatbot.embeddings, Sentence-BERT). Both expose the same
+    ``search``/``entries`` interface, so the two are scored by identical code
+    on identical gold sets - which is what makes the comparison paired.
+    """
     from chatbot.retriever import Retriever, load_corpus
-    return Retriever(load_corpus(corpus_path) if corpus_path else load_corpus())
+
+    entries = load_corpus(corpus_path) if corpus_path else load_corpus()
+    if kind == "tfidf":
+        return Retriever(entries)
+    if kind == "sbert":
+        from chatbot.embeddings import SbertRetriever
+        return SbertRetriever(entries)
+    raise ValueError("unknown retriever kind %r (expected tfidf|sbert)" % kind)
 
 
 def evaluate(retriever, gold_queries: List[Dict[str, Any]],
@@ -238,10 +256,12 @@ def format_sweep(rows: List[Dict[str, Any]]) -> str:
 
 
 def format_human(metrics: Dict[str, Any], gold_path: str,
-                 sweep: Optional[List[Dict[str, Any]]] = None) -> str:
+                 sweep: Optional[List[Dict[str, Any]]] = None,
+                 retriever: str = "tfidf") -> str:
     """Render the H1 report; raw cosine is reported beside the retriever score."""
     lines = [
-        "Gold set: %s" % gold_path,
+        "Gold set:  %s" % gold_path,
+        "Retriever: %s" % retriever,
         "Queries:  %d (%d answerable, %d abstain-expected)"
         % (metrics["n_queries"], metrics["n_answerable"],
            metrics["n_abstain_expected"]),
@@ -304,7 +324,13 @@ def assert_index_contract(retriever) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="H1 retrieval evaluation")
     ap.add_argument("--gold", default=str(DEFAULT_GOLD))
+    ap.add_argument("--retriever", choices=("tfidf", "sbert"), default="tfidf",
+                    help="tfidf = chatbot.retriever baseline; sbert = "
+                         "chatbot.embeddings (needs requirements-ml.txt)")
     ap.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
+    ap.add_argument("--thresholds", default=None,
+                    help="comma-separated gates for --sweep "
+                         "(default: %s)" % ",".join(str(t) for t in SWEEP_THRESHOLDS))
     ap.add_argument("--top-k", type=int, default=TOP_K)
     ap.add_argument("--sweep", action="store_true",
                     help="tabulate abstention metrics across several gates")
@@ -315,14 +341,23 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if not 0.0 <= args.threshold <= 1.0:
         raise SystemExit("--threshold must be in [0, 1]")
+    gates = SWEEP_THRESHOLDS
+    if args.thresholds:
+        try:
+            gates = tuple(float(x) for x in args.thresholds.split(",") if x.strip())
+        except ValueError:
+            raise SystemExit("--thresholds must be comma-separated numbers")
+        if not gates or any(not 0.0 <= g <= 1.0 for g in gates):
+            raise SystemExit("--thresholds must be in [0, 1]")
     gold = load_gold(args.gold)
-    retriever = build_retriever()
+    retriever = build_retriever(args.retriever)
     assert_index_contract(retriever)
     metrics = evaluate(retriever, gold, threshold=args.threshold,
                        top_k=args.top_k)
-    sweep = (threshold_sweep(retriever, gold, top_k=args.top_k)
+    sweep = (threshold_sweep(retriever, gold, thresholds=gates, top_k=args.top_k)
              if args.sweep else None)
-    payload: Dict[str, Any] = {"gold": args.gold, "metrics": metrics}
+    payload: Dict[str, Any] = {"gold": args.gold, "retriever": args.retriever,
+                               "metrics": metrics}
     if sweep is not None:
         payload["sweep"] = sweep
     if args.out:
@@ -331,7 +366,7 @@ def main(argv=None) -> int:
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(format_human(metrics, args.gold, sweep))
+        print(format_human(metrics, args.gold, sweep, retriever=args.retriever))
     return 0
 
 

@@ -49,6 +49,12 @@ data/faq_corpus.bak.json
 models/classifier.pkl
 models/lead_model.pkl
 
+# Sentence-BERT embedding cache (chatbot/embeddings.py). Keyed by corpus
+# fingerprint + model name, rebuilt on first use; the model weights live in
+# the HuggingFace cache outside the repo.
+data/embeddings_*.npy
+data/embeddings_*.json
+
 # IDE / OS
 .vscode/
 .idea/
