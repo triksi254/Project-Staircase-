@@ -77,6 +77,21 @@ def _score_turn(tracker, alpha: float = 0.5) -> Dict[str, Any]:
     return {"rule": rule, "hybrid": hybrid, "ml": None,
             "label": score_to_label(hybrid), "alpha": float(alpha)}
 
+
+#: Keyword groups for the multi-intent guard: >2 groups hit -> escalate
+#: instead of answering (compound queries need a counsellor, not top-1).
+_INTENT_GROUPS = (
+    ("passport",),
+    ("ielts", "english test", "english-test"),
+    ("kcse", "grade", "mean grade", "b+", "c+", "gpa"),
+    ("data science", "nursing", "business", "course", "degree",
+     "masters", "programme", "program", "subject"),
+    ("intake", "september", "january", "deadline", "when can i start",
+     "when do i apply"),
+    ("aston", "bcu", "usw", "rgu", "herts", "salford", "uclan",
+     "destination", "which university", "where should i study"),
+)
+
 def _ensure_lead(st) -> None:
     """Create the session's first lead lazily (is_new, counter, tracker)."""
     st.session_state.setdefault("lead_id", None)
@@ -135,14 +150,29 @@ def _close_lead_and_start_new(st) -> None:
     }
 
 
+def _is_multi_intent(query: str) -> bool:
+    q = query.lower()
+    hits = sum(any(k in q for k in g) for g in _INTENT_GROUPS)
+    return hits > 2
+
+
 def _answer_query(query: str, tracker, retriever) -> Dict[str, Any]:
     """One chat turn: respond, then record it on the tracker."""
     from chatbot.responder import EscalationPolicy, respond
     # Rule-only hybrid pre-combined so respond() does not re-blend; the
     # escalation label still comes from score_to_label on the same value.
     pre = tracker.hybrid()
-    out = respond(query, retriever, rule_score=pre, ml_score=None,
-                  policy=EscalationPolicy(alpha=1.0), top_k=3)
+    if _is_multi_intent(query):
+        out = respond("purple monkey dishwasher", retriever,
+                      rule_score=pre, ml_score=None,
+                      policy=EscalationPolicy(alpha=1.0,
+                                              min_confidence=0.60), top_k=3)
+        out["query"] = query
+        out["category"] = "General Enquiries"
+    else:
+        out = respond(query, retriever, rule_score=pre, ml_score=None,
+                      policy=EscalationPolicy(alpha=1.0,
+                                              min_confidence=0.60), top_k=3)
     tracker.add_turn(query, out, datetime.now(timezone.utc))
     return out
 
