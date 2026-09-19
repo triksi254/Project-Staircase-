@@ -14,6 +14,13 @@ clear. Anything unseen defaults to the "unknown/none" bucket, never to a
 positive. Demo/testing convenience only; cannot replace counsellor-form
 extraction (``leads.features``). Scores from here are rule-only /
 provisional by definition.
+
+ COUNSELLOR-ONLY FEATURES (deliberately absent from rubric_evidence):
+ note_completeness and study_gap are form-extraction features -- the
+ former scores how fully a counsellor filled the assessment notes, the
+ latter whether a gap was recorded on the form. A live chat has neither
+ a form nor a counsellor, so this module does not invent values for
+ them: they keep their score_row defaults (0 contribution) instead.
 """
 from __future__ import annotations
 

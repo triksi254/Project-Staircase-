@@ -99,3 +99,44 @@ def test_archive_entry_captures_final_score():
     assert entry["final_label"] == "Cold"
     assert entry["turns"] == 1
     assert 0.0 <= entry["final_hybrid_score"] <= 1.0
+
+
+def test_scope_filter_usw_query_never_returns_rgu_faq():
+    from chatbot.responder import EscalationPolicy, respond
+
+    class _Entry:
+        def __init__(self, question, answer, institution, category="X"):
+            self.question = question
+            self.answer = answer
+            self.institution = institution
+            self.category = category
+
+    class _Retriever:
+        def search(self, query, top_k=3):
+            return [(_Entry("RGU IELTS Q", "RGU IELTS 6.5.", "RGU"), 0.95)]
+
+    out = respond("What IELTS score does USW require?", _Retriever(),
+                  policy=EscalationPolicy(min_confidence=0.0))
+    assert out["answer"].startswith("I don't have a verified answer")
+    assert out["cited_question"] is None
+    assert out["escalate"] is True
+
+
+def test_scope_filter_matching_institution_answers():
+    from chatbot.responder import EscalationPolicy, respond
+
+    class _Entry:
+        def __init__(self, question, answer, institution, category="X"):
+            self.question = question
+            self.answer = answer
+            self.institution = institution
+            self.category = category
+
+    class _Retriever:
+        def search(self, query, top_k=3):
+            return [(_Entry("USW visa Q", "USW visa answer.", "USW"), 0.95)]
+
+    out = respond("Does a Kenyan student need a visa at USW?", _Retriever(),
+                  policy=EscalationPolicy(min_confidence=0.0))
+    assert "USW visa answer" in out["answer"]
+

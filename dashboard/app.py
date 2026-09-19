@@ -236,10 +236,8 @@ def main() -> None:
                  f"ML score: **rule-only** · alpha: **{scored['alpha']:.2f}**")
         from chatbot.responder import EscalationPolicy
         hot_at = EscalationPolicy().hot_threshold
-        esc = ("escalate (Hot)" if scored["label"] == "Hot"
-               else "escalate only on low confidence")
-        st.write(f"Escalation: **{esc}** (label={scored['label']}, "
-                 f"hot≥{hot_at:.2f})")
+        st.write("Escalation: on low retrieval confidence OR Hot lead "
+                 f"(score >= {hot_at:.2f})")
         st.write("Visa intent: "
                  f"**{'yes' if flags.get('visa_intent_mentioned') else 'no'}**"
                  " · Funding interest: "
