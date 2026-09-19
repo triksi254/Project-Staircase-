@@ -62,6 +62,9 @@ data/embeddings_*.json
 .DS_Store
 Thumbs.db
 
+# Streamlit local config/secrets (dashboard/app.py) — never commit.
+.streamlit/
+
 # Test / coverage
 .pytest_cache/
 .coverage
