@@ -1,0 +1,450 @@
+{
+  "config": {
+    "corpus": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\data\\faq_corpus.json",
+    "batch_a": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\evaluation\\gold_queries.json",
+    "batch_b": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\evaluation\\gold_queries_b.json",
+    "threshold": 0.6,
+    "seed": 42,
+    "n_bootstrap": 1000,
+    "withhold_frac": 0.3,
+    "rank_fail": 3,
+    "top_k": 5
+  },
+  "stage1_full": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.3907,
+    "std_top1_score": 0.1474,
+    "mean_top1_score_answerable": 0.408,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2432,
+    "abstention_recall": 1.0,
+    "false_abstention_rate": 0.9032,
+    "n_predicted_abstain": 37,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage2_cold_start": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.3226,
+    "mrr": 0.3844,
+    "recall_at_3": 0.4516,
+    "recall_at_5": 0.4839,
+    "mean_top1_score": 0.3725,
+    "std_top1_score": 0.1274,
+    "mean_top1_score_answerable": 0.391,
+    "mean_raw_cosine": 0.28,
+    "std_raw_cosine": 0.0954,
+    "mean_raw_cosine_answerable": 0.291,
+    "abstention_precision": 0.2368,
+    "abstention_recall": 1.0,
+    "false_abstention_rate": 0.9355,
+    "n_predicted_abstain": 38,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage3_probe": {
+    "n_probe_queries": 23,
+    "n_failures": 23
+  },
+  "stage4_full_restore": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.3907,
+    "std_top1_score": 0.1474,
+    "mean_top1_score_answerable": 0.408,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2432,
+    "abstention_recall": 1.0,
+    "false_abstention_rate": 0.9032,
+    "n_predicted_abstain": 37,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage4b_targeted_restore": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.3907,
+    "std_top1_score": 0.1474,
+    "mean_top1_score_answerable": 0.408,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2432,
+    "abstention_recall": 1.0,
+    "false_abstention_rate": 0.9032,
+    "n_predicted_abstain": 37,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "n_entries_full": 98,
+  "n_entries_reduced": 90,
+  "n_entries_targeted": 98,
+  "withheld_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "restored_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "targeted_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "batch_a_withheld_ids": [
+    2,
+    10,
+    12,
+    16,
+    17
+  ],
+  "targeted_by_category_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "failed_categories": [
+    "Accommodation",
+    "Application Process",
+    "English Language",
+    "Entry Requirements",
+    "Fees & Funding",
+    "Program Details",
+    "Scholarships",
+    "Visa & Immigration"
+  ],
+  "batch_a_failures": [
+    {
+      "query": "Can I study in UK immediately after KCSE?",
+      "gold_id": 15,
+      "category": "Entry Requirements",
+      "rank": 2,
+      "top1_score": 0.2704,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "What documents do I need to begin?",
+      "gold_id": 17,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.1472,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Do I need IELTS or another English test?",
+      "gold_id": 14,
+      "category": "English Language",
+      "rank": 3,
+      "top1_score": 0.4959,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "Can you help me find scholarships?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.5878,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "How much does studying abroad cost?",
+      "gold_id": 21,
+      "category": "Fees & Funding",
+      "rank": 2,
+      "top1_score": 0.3327,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "How long does the application process take?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.3527,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What do I need to do for my student visa to be guaranteed?",
+      "gold_id": 16,
+      "category": "Visa & Immigration",
+      "rank": null,
+      "top1_score": 0.2707,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Can I use financial aid to pay for study abroad?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.3331,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What are the qualifications to studying in UK?",
+      "gold_id": 2,
+      "category": "Entry Requirements",
+      "rank": null,
+      "top1_score": 0.2274,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What GPA do I need to study in UK?",
+      "gold_id": 2,
+      "category": "Entry Requirements",
+      "rank": null,
+      "top1_score": 0.3656,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What subjects can I study while abroad?",
+      "gold_id": 12,
+      "category": "Program Details",
+      "rank": null,
+      "top1_score": 0.2477,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "I am interested in studying abroad, but where do I start?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": 1,
+      "top1_score": 0.1533,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "When should I apply?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": 2,
+      "top1_score": 0.4672,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "How do I handle housing?",
+      "gold_id": 6,
+      "category": "Accommodation",
+      "rank": 4,
+      "top1_score": 0.158,
+      "predicted_abstain": true,
+      "reason": "rank>3"
+    },
+    {
+      "query": "How Long Does It Take to Get a Degree Abroad?",
+      "gold_id": 0,
+      "category": "Program Details",
+      "rank": 1,
+      "top1_score": 0.3452,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "How do I get started?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.0944,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "How long do study abroad programs take?",
+      "gold_id": 0,
+      "category": "Program Details",
+      "rank": 1,
+      "top1_score": 0.4517,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "When can I start applying for study abroad programs?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": 1,
+      "top1_score": 0.2437,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    },
+    {
+      "query": "What documentation should I submit with my application?",
+      "gold_id": 17,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.2757,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Do I need to apply for a student visa?",
+      "gold_id": 16,
+      "category": "Visa & Immigration",
+      "rank": null,
+      "top1_score": 0.2309,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Where can I find study abroad scholarships?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.475,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Where will I live during my study abroad program?",
+      "gold_id": 6,
+      "category": "Accommodation",
+      "rank": null,
+      "top1_score": 0.2024,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Can I work while studying abroad?",
+      "gold_id": 19,
+      "category": "Visa & Immigration",
+      "rank": 1,
+      "top1_score": 0.4072,
+      "predicted_abstain": true,
+      "reason": "below_gate"
+    }
+  ],
+  "batch_b_in_stage3": false,
+  "delta": {
+    "cold_start_cost_recall_at_3": 0.1936,
+    "cold_start_cost_recall_at_5": 0.2258,
+    "full_restore_recall_at_3": 0.1936,
+    "full_restore_recall_at_5": 0.2258,
+    "targeted_restore_recall_at_3": 0.1936,
+    "targeted_restore_recall_at_5": 0.2258
+  },
+  "recovery": {
+    "full_recall_at_3": 1.0,
+    "targeted_recall_at_3": 1.0,
+    "full_recall_at_5": 1.0,
+    "targeted_recall_at_5": 1.0
+  },
+  "residual_gap": {
+    "recall_at_3": 0.0,
+    "recall_at_5": 0.0
+  },
+  "bootstrap_ci": {
+    "full_recall_at_3": {
+      "metric": "recall_at_3",
+      "n": 40,
+      "n_bootstrap": 1000,
+      "delta": 0.15,
+      "mean": 0.147,
+      "ci_low": 0.05,
+      "ci_high": 0.275
+    },
+    "full_recall_at_5": {
+      "metric": "recall_at_5",
+      "n": 40,
+      "n_bootstrap": 1000,
+      "delta": 0.175,
+      "mean": 0.1719,
+      "ci_low": 0.05,
+      "ci_high": 0.3
+    },
+    "targeted_recall_at_3": {
+      "metric": "recall_at_3",
+      "n": 40,
+      "n_bootstrap": 1000,
+      "delta": 0.15,
+      "mean": 0.147,
+      "ci_low": 0.05,
+      "ci_high": 0.275
+    },
+    "targeted_recall_at_5": {
+      "metric": "recall_at_5",
+      "n": 40,
+      "n_bootstrap": 1000,
+      "delta": 0.175,
+      "mean": 0.1719,
+      "ci_low": 0.05,
+      "ci_high": 0.3
+    }
+  },
+  "integrity": {
+    "before": {
+      "corpus": "a89bc2a131bcadb2220ffedf8bc90ff700e6351e64076917ff7ed5a3fc92196c",
+      "vectorizer_cache": "3a8165f522b0f733a0043aeb9990a0b6b98b84aca4fdb84e25cc47ca9e75e0ea",
+      "matrix_cache": "865bbea06c83b416037964f59a22c2c8760e7b643ddf74d020f27ff6b8f31ff3"
+    },
+    "after": {
+      "corpus": "a89bc2a131bcadb2220ffedf8bc90ff700e6351e64076917ff7ed5a3fc92196c",
+      "vectorizer_cache": "3a8165f522b0f733a0043aeb9990a0b6b98b84aca4fdb84e25cc47ca9e75e0ea",
+      "matrix_cache": "865bbea06c83b416037964f59a22c2c8760e7b643ddf74d020f27ff6b8f31ff3"
+    },
+    "unchanged": true,
+    "corpus_unchanged": true,
+    "caches_unchanged": true
+  }
+}
