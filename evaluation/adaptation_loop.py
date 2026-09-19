@@ -235,11 +235,17 @@ def run_adaptation_experiment(
     stage4b = _stage(_make_retriever(restored), batch_b, threshold)
 
     # ---- STAGE 5: paired bootstrap on batch B ---------------------------
+    # Restricted to answerable queries so the interval is for the same
+    # quantity the summaries report (recall_at_3/5 are answerable-only; the
+    # abstain-expected rows are False in every stage and would dilute the
+    # delta by 31/40).
+    base_rows = [r for r in stage2["rows"] if r["gold_id"] is not None]
     bootstrap_ci = {}
     for label, later in (("full", stage4), ("targeted", stage4b)):
+        later_rows = [r for r in later["rows"] if r["gold_id"] is not None]
         for key in ("recall_at_3", "recall_at_5"):
             bootstrap_ci["%s_%s" % (label, key)] = paired_bootstrap(
-                stage2["rows"], later["rows"], key,
+                base_rows, later_rows, key,
                 n_bootstrap=n_bootstrap, seed=seed)
 
     delta = {

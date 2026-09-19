@@ -155,6 +155,21 @@ def test_cold_start_does_not_improve_recall(tmp_path):
     assert out["delta"]["cold_start_cost_recall_at_3"] >= 0.0
 
 
+def test_bootstrap_delta_matches_stage_delta(tmp_path):
+    """The CI must be for the same quantity the summaries report.
+
+    recall_at_3/5 are answerable-only, so averaging the paired difference over
+    all batch-B rows (including abstain-expected, always False) would report a
+    delta scaled by n_answerable/n_total.
+    """
+    out = _run(tmp_path)
+    ci = out["bootstrap_ci"]["full_recall_at_3"]
+    assert ci["n"] == 10  # all 10 fixture rows are answerable
+    staged = (out["stage4_full_restore"]["recall_at_3"]
+              - out["stage2_cold_start"]["recall_at_3"])
+    assert abs(ci["delta"] - staged) <= 0.001
+
+
 def test_real_gold_sets_are_disjoint_on_query_strings():
     """The batch-B leak guard requires the two halves to share no query text."""
     a = json.loads((REPO / "evaluation" / "gold_queries.json")
