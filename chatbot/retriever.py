@@ -150,7 +150,7 @@ class Retriever:
         out = []
         for i in order:
             s = round(float(max(0.0, min(1.0, sims[i]))), 4)
-            bonus = sum(0.05 for k in self.entries[i].keywords
+            bonus = sum(0.10 for k in self.entries[i].keywords
                         if k.lower() in query.lower())
             out.append((self.entries[i], round(min(1.0, s + bonus), 4)))
         return out

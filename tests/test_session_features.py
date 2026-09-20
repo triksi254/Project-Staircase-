@@ -55,7 +55,12 @@ def test_tracker_unseen_is_not_positive():
     assert ev["session_flags"]["visa_intent_mentioned"] is False
     base = empty_evidence()
     for key in base:
+        if key == "study_gap_mentioned":
+            # Empty session: gap evidence is omitted until the first turn.
+            assert "study_gap_mentioned" not in ev
+            continue
         assert ev[key] == base[key]
+    assert _tracker().rule_score() == 0.0  # silent lead collects no credit
 
 
 def test_entropy_zero_on_single_category():
@@ -101,7 +106,14 @@ def test_archive_entry_captures_final_score():
     assert 0.0 <= entry["final_hybrid_score"] <= 1.0
 
 
-def test_scope_filter_usw_query_never_returns_rgu_faq():
+def test_respond_uses_full_corpus_ranking_not_query_institution():
+    """The retired institution scope must not pre-filter the retriever.
+
+    ``respond`` sees only what the retriever returns for the full corpus, so a
+    high-confidence hit from another institution is answered (the old scope
+    filter abstained on it). The query-facing contract is deliberately
+    corpus-wide: only ``min_confidence`` decides answer vs abstention.
+    """
     from chatbot.responder import EscalationPolicy, respond
 
     class _Entry:
@@ -112,31 +124,21 @@ def test_scope_filter_usw_query_never_returns_rgu_faq():
             self.category = category
 
     class _Retriever:
+        def __init__(self):
+            self.entries = [_Entry("RGU IELTS Q", "RGU IELTS 6.5.", "RGU")]
+
         def search(self, query, top_k=3):
-            return [(_Entry("RGU IELTS Q", "RGU IELTS 6.5.", "RGU"), 0.95)]
+            return [(self.entries[0], 0.95)]
 
     out = respond("What IELTS score does USW require?", _Retriever(),
-                  policy=EscalationPolicy(min_confidence=0.0))
-    assert out["answer"].startswith("I don't have a verified answer")
-    assert out["cited_question"] is None
-    assert out["escalate"] is True
+                  policy=EscalationPolicy(min_confidence=0.60))
+    assert "RGU IELTS 6.5" in out["answer"]          # top-1 answered as-is
+    assert out["cited_question"] == "RGU IELTS Q"
+    assert out["escalate"] is False
 
-
-def test_scope_filter_matching_institution_answers():
-    from chatbot.responder import EscalationPolicy, respond
-
-    class _Entry:
-        def __init__(self, question, answer, institution, category="X"):
-            self.question = question
-            self.answer = answer
-            self.institution = institution
-            self.category = category
-
-    class _Retriever:
-        def search(self, query, top_k=3):
-            return [(_Entry("USW visa Q", "USW visa answer.", "USW"), 0.95)]
-
-    out = respond("Does a Kenyan student need a visa at USW?", _Retriever(),
-                  policy=EscalationPolicy(min_confidence=0.0))
-    assert "USW visa answer" in out["answer"]
+    # Same top-1, but below the gate -> abstain + escalate.
+    low = respond("What IELTS score does USW require?", _Retriever(),
+                  policy=EscalationPolicy(min_confidence=0.97))
+    assert low["cited_question"] is None
+    assert low["escalate"] is True
 

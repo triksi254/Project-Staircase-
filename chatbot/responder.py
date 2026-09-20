@@ -21,6 +21,11 @@ retrieval similarity is below the gate, and a well-grounded answer may still
 escalate if the lead is Hot. ``min_confidence`` therefore gates retrieval
 quality only -- it is *not* a threshold on the lead score.
 
+Retrieval is deliberately corpus-wide: ``respond`` never pre-filters or
+re-ranks the retriever by institution, so the top-1 hit can come from any
+corpus entry (a query naming a university does not scope the search) and the
+``min_confidence`` gate stays the only answer/abstain decision.
+
 Hot classification is delegated to ``score_to_label`` (tertile cut, i.e.
 ``lead_score >= 2/3``). ``EscalationPolicy.hot_threshold`` is kept for
 callers, serialisation, and display; to avoid silent divergence it must
@@ -40,23 +45,6 @@ ABSTAIN_MESSAGE = (
     "I've flagged your question for a counsellor who will follow up."
 )
 
-#: Institution names in the corpus (besides "General"). A query that names
-#: one of these scopes the answer: a top-1 FAQ from a *different* named
-#: institution is a scope mismatch and must abstain rather than present
-#: another university's facts as the answer. "General" FAQs answer anyone.
-_SCOPED_INSTITUTIONS = frozenset({
-    "aston", "bcu", "herts", "rgu", "salford", "uclan", "usw",
-})
-
-
-def _query_institution(query: str) -> Optional[str]:
-    """Lowercased corpus institution named in ``query``, else None."""
-    lowered = f" {query.lower()} "
-    for name in sorted(_SCOPED_INSTITUTIONS):
-        if f" {name} " in lowered:
-            return name
-    return None
-
 
 @dataclass
 class EscalationPolicy:
@@ -74,37 +62,34 @@ def respond(
     policy: Optional[EscalationPolicy] = None,
     top_k: int = 3,
 ) -> Dict[str, Any]:
-    """Answer ``query``; return dict with answer + routing signals."""
+    """Answer ``query``; return dict with answer + routing signals.
+
+    Retrieval is corpus-wide: ``retriever.search`` ranks the **full** corpus
+    (no institution scoping/filtering before ranking) and the resulting top-1
+    similarity is then gated by ``min_confidence``. A query therefore either
+    gets the grounded top-1 FAQ with its question cited, or abstains +
+    escalates; naming a university in the query does not change the ranking.
+    """
     pol = policy or EscalationPolicy()
     lead = hybrid_score(rule_score, ml_score, alpha=pol.alpha)
     label = score_to_label(lead)
+
     hits = retriever.search(query, top_k=top_k)
     confidence = hits[0][1] if hits else 0.0
-    # Institution scope: a query naming a corpus institution (e.g. "USW")
-    # must not be answered with another university's FAQ (e.g. RGU facts
-    # presented as USW facts). "General" FAQs answer anyone; only a named
-    # institution mismatched against a *different* named institution
-    # abstains. Checked before the confidence gate so a high-confidence
-    # wrong-university hit still abstains.
-    scope = _query_institution(query)
-    scope_mismatch = bool(
-        hits and scope is not None
-        and hits[0][0].institution.lower() not in ("general", scope))
+
     # Escalation aligns exactly with score_to_label: Hot <=> lead >= 2/3.
-    escalate = ((not hits) or scope_mismatch
-                or (confidence < pol.min_confidence) or (label == "Hot"))
+    escalate = ((not hits) or (confidence < pol.min_confidence)
+                or (label == "Hot"))
     priority = "high" if label == "Hot" else ("normal" if escalate else "none")
-    if not hits or scope_mismatch or confidence < pol.min_confidence:
+    if not hits or confidence < pol.min_confidence:
         answer = ABSTAIN_MESSAGE
-        cited = None
-        if scope_mismatch:
-            category = hits[0][0].category or "General Enquiries"
-        else:
-            try:
-                from chatbot.classifier import predict as _predict
-                category = _predict(query)
-            except Exception:
-                category = "General Enquiries"
+        cited: Optional[str] = None
+        category: Optional[str] = None
+        try:
+            from chatbot.classifier import predict as _predict
+            category = _predict(query)
+        except Exception:
+            category = "General Enquiries"
     else:
         top = hits[0][0]
         answer = f"{top.answer} (Source: '{top.question}')"

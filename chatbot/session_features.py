@@ -19,8 +19,11 @@ provisional by definition.
  note_completeness and study_gap are form-extraction features -- the
  former scores how fully a counsellor filled the assessment notes, the
  latter whether a gap was recorded on the form. A live chat has neither
- a form nor a counsellor, so this module does not invent values for
- them: they keep their score_row defaults (0 contribution) instead.
+ a form nor a counsellor, so this module does not invent values for them:
+ note_completeness keeps its score_row default, and
+ ``study_gap_mentioned`` is emitted only once the visitor has actually
+ sent a turn. An empty session has no gap evidence either way, so it must
+ not collect the rubric's "no gap" credit before the first message.
 """
 from __future__ import annotations
 
@@ -153,8 +156,11 @@ class SessionTracker:
           Entry Requirements -> ``has_course=True``
           Application Process -> ``has_intake=True``
         ``destination_uk`` stays 0 (topic interest does not establish
-        destination). Passport/qualifications/gaps are unobservable in chat
-        and stay at their unknown defaults.
+        destination). Passport/qualifications are unobservable in chat and
+        stay at their unknown defaults. ``study_gap_mentioned`` is emitted as
+        0 ("no gap recorded") only once at least one turn exists; an empty
+        session omits the key so a silent lead cannot collect the rubric's
+        "no gap" credit.
         """
         ev = empty_evidence()
         seen = set(self.category_counts())
@@ -174,13 +180,29 @@ class SessionTracker:
         ev["note_word_count"] = sum(len(t["user_msg"].split())
                                     for t in self._turns)
         out = dict(ev)
+        if not self._turns:
+            # Silent lead: no gap evidence either way. Omitting the key keeps
+            # the rubric's "no gap" credit out of an untouched session.
+            out.pop("study_gap_mentioned", None)
         out["session_flags"] = flags
         return out
 
     def rule_score(self) -> float:
-        """Rule score in [0, 1] for the current evidence."""
+        """Rule score in [0, 1] for the current evidence.
+
+        An empty session scores 0.0: with no turns there is no evidence,
+        so no rubric credit (including the "no gap" credit) applies.
+        """
+        if not self._turns:
+            return 0.0
         return rule_score_from_evidence(self.rubric_evidence())
 
     def hybrid(self, ml_proba=None, alpha: float = 0.5) -> float:
-        """Hybrid score; rule-only unless ``ml_proba`` is supplied."""
+        """Hybrid score; rule-only unless ``ml_proba`` is supplied.
+
+        Empty sessions score 0.0 regardless of any supplied proba: there
+        are no features to score.
+        """
+        if not self._turns:
+            return 0.0
         return hybrid_for_session(self.rule_score(), ml_proba, alpha=alpha)

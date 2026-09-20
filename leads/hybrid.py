@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODELS_DIR = PROJECT_ROOT / "models"
+DEFAULT_MODELS_DIR = PROJECT_ROOT / "artifacts"
 
 COLD, WARM, HOT = 0, 1, 2
 LABEL_NAMES = ("Cold", "Warm", "Hot")
@@ -208,12 +208,21 @@ def load_artifacts(models_dir=None) -> Dict[str, Any]:
     out: Dict[str, Any] = {"models_dir": str(base), "files": {}}
     pkl_path = base / "lead_model.pkl"
     if not pkl_path.is_file():
+        rf_full = base / "lead_model_rf_full.pkl"
+        if rf_full.is_file():
+            pkl_path = rf_full
+        else:
+            tagged = sorted(base.glob("lead_model*.pkl"))
+            tagged = [pp for pp in tagged if pp.name != "lead_model.pkl"]
+            if tagged:
+                pkl_path = tagged[0]
+
+    if not pkl_path.is_file():
         logger.warning("load_artifacts: ML model missing at %s — returning rule-only config", pkl_path)
     else:
         try:
-            import pickle
-            with open(pkl_path, "rb") as fh:
-                out["model"] = pickle.load(fh)
+            import joblib
+            out["model"] = joblib.load(pkl_path)
             out["files"]["model"] = str(pkl_path)
         except Exception:
             logger.warning("load_artifacts: ML model unreadable at %s — returning rule-only config", pkl_path)
@@ -230,4 +239,241 @@ def load_artifacts(models_dir=None) -> Dict[str, Any]:
         except (OSError, ValueError):
             logger.warning("load_artifacts: %s unreadable at %s — returning rule-only config", key, fp)
             continue
+    # invalidate cache so the next predict_ml_proba call picks up the new model
+    _invalidate_ml_cache()
     return out
+
+#: Numeric feature columns the trained lead model consumes. Mirrors
+#: ``leads.train_ml.NUMERIC`` (kept as a plain list here so live scoring never
+#: imports the pandas/sklearn training module).
+NUMERIC: List[str] = [
+    "funding_clarity",
+    "funding_method_present",
+    "has_english_test",
+    "note_word_count",
+    # engagement: synthetic-only, NaN for real -> median-imputed
+    "message_count",
+    "avg_delay_s",
+    "question_category_entropy",
+    "visa_intent_mentioned",
+    "returning_session",
+    "session_word_count",
+]
+
+#: Categorical feature columns, one-hot expanded for the model. Mirrors
+#: ``leads.train_ml.CATEGORICAL``; the per-feature value sets live in
+#: ``KNOWN_CAT_VALUES`` below.
+CATEGORICAL: List[str] = [
+    "passport_status",
+    "qual_level",
+    "destination_uk",
+    "has_course",
+    "has_intake",
+    "study_gap_mentioned",
+    "previous_application_mentioned",
+]
+
+#: Known categorical values for each CATEGORICAL feature. These are the values
+#: observed in the combined train/test frame (real + synthetic) used to train
+#: the headline RandomForest model saved in ``artifacts/``.
+KNOWN_CAT_VALUES: Dict[str, List[str]] = {
+    "passport_status": ["none", "eu", "kenyan", "other", "unknown"],
+    "qual_level": ["below_english", "english_qual", "high_school_diploma",
+                   "undergraduate", "postgraduate", "unknown"],
+    "destination_uk": ["no", "unknown"],
+    "has_course": ["no", "unknown"],
+    "has_intake": ["no", "unknown"],
+    "study_gap_mentioned": ["no", "unknown"],
+    "previous_application_mentioned": ["no", "yes", "unknown"],
+}
+
+
+#: Module-level cache for the loaded ML model + preprocessing parameters.
+#: Invalidated whenever ``_invalidate_ml_cache()`` is called.
+_ml_cache: Dict[str, Any] = {
+    "config": None,
+    "feature_names": None,
+    "cat_values": None,
+    "median_imputations": None,
+}
+
+
+def _invalidate_ml_cache() -> None:
+    """Clear the ML prediction cache so the next call re-loads + re-derives."""
+    _ml_cache["config"] = None
+    _ml_cache["feature_names"] = None
+    _ml_cache["cat_values"] = None
+    _ml_cache["median_imputations"] = None
+
+
+def _widen_cat_values(model_feature_names: List[str]) -> Dict[str, List[str]]:
+    """Widen KNOWN_CAT_VALUES with any extra one-hot columns the model expects."""
+    out: Dict[str, List[str]] = {k: list(v) for k, v in KNOWN_CAT_VALUES.items()}
+    for col in model_feature_names:
+        parts = col.split("_", 1)
+        if len(parts) == 2 and parts[0] in out:
+            val = parts[1]
+            if val not in out[parts[0]]:
+                out[parts[0]].append(val)
+    return out
+
+
+def _derive_feature_names(config: Dict[str, Any]) -> List[str]:
+    """Return the ordered feature-name list the loaded model expects."""
+    model = config.get("model")
+    if model is not None and hasattr(model, "feature_names_in_"):
+        names = getattr(model.feature_names_in_, "tolist",
+                        lambda: list(model.feature_names_in_))()
+        if names:
+            return list(names)
+    schema = config.get("metrics", {}).get("schema", {})
+    feats = schema.get("features", []) if isinstance(schema, dict) else []
+    if feats:
+        return list(feats)
+    return []
+
+
+def _derive_median_imputations(config: Dict[str, Any]) -> Dict[str, float]:
+    """Return numeric median imputation values from metrics config, else 0.0."""
+    medians: Dict[str, float] = {}
+    schema = config.get("metrics", {}).get("schema", {})
+    if isinstance(schema, dict):
+        for feat in NUMERIC:
+            val = schema.get(feat, 0.0)
+            try:
+                medians[feat] = float(val)
+            except (TypeError, ValueError):
+                medians[feat] = 0.0
+    return medians
+
+
+def preprocess_for_prediction(
+    evidence: Dict[str, Any],
+    engagement: Optional[Dict[str, Any]] = None,
+    medians: Optional[Dict[str, float]] = None,
+    cat_values: Optional[Dict[str, List[str]]] = None,
+) -> Dict[str, float]:
+    """Build a feature dict from a live evidence row ready for model prediction.
+
+    ``evidence`` is a dict as returned by ``SessionTracker.rubric_evidence()``
+    (or ``leads.features`` row). ``engagement`` is an optional dict with keys
+    ``message_count``, ``avg_delay_s``, ``question_category_entropy``,
+    ``returning_session``, ``session_word_count``. ``medians`` and
+    ``cat_values`` override the cache defaults; pass ``None`` to use cached
+    values from the last ``load_artifacts`` call.
+
+    The returned dict maps each expected model feature column to its numeric
+    value; missing expected columns are filled with 0.0.
+    """
+    if cat_values is None:
+        cat_values = _ml_cache.get("cat_values", KNOWN_CAT_VALUES)
+    if medians is None:
+        medians = _ml_cache.get("median_imputations", {})
+
+    feats: Dict[str, float] = {}
+
+    # -- numeric features --
+    for feat in NUMERIC:
+        val = evidence.get(feat)
+        if val is None and engagement is not None:
+            val = engagement.get(feat)
+        try:
+            feats[feat] = float(val)
+        except (TypeError, ValueError):
+            feats[feat] = float("nan")
+
+    # median imputation (0.0 when no median stored for this feature)
+    for feat in NUMERIC:
+        v = feats[feat]
+        if v != v:  # NaN
+            feats[feat] = medians.get(feat, 0.0)
+
+    # -- categorical features (one-hot) --
+    for feat in CATEGORICAL:
+        raw = evidence.get(feat, "unknown")
+        try:
+            raw = str(raw)
+        except (TypeError, ValueError):
+            raw = "unknown"
+        norm = raw.strip().lower()
+        for val in cat_values.get(feat, ["unknown"]):
+            col = f"{feat}_{val}"
+            feats[col] = 1.0 if norm == val.lower() else 0.0
+
+    # fill any expected columns not yet set
+    expected = _ml_cache.get("feature_names", [])
+    if expected:
+        for col in expected:
+            if col not in feats:
+                feats[col] = 0.0
+
+    return feats
+
+
+def predict_ml_proba(
+    evidence: Dict[str, Any],
+    engagement: Optional[Dict[str, Any]] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[List[float]]:
+    """Return P(Cold), P(Warm), P(Hot) for a live evidence row, or None.
+
+    Uses the model + preprocessing params from the last ``load_artifacts``
+    call (or the explicit ``config`` dict). The artifacts are loaded lazily on
+    the first call -- so a caller that never touched ``load_artifacts`` (the
+    dashboard) still gets a prediction instead of a spurious ``None``.
+    Returns None when the model is absent, not a classifier, or prediction
+    fails for any reason.
+    """
+    if config is None:
+        config = get_ml_config()
+    model = config.get("model") if config else None
+    if model is None or not hasattr(model, "predict_proba"):
+        return None
+
+    feature_names = _ml_cache.get("feature_names")
+    if feature_names is None:
+        return None
+
+    feats = preprocess_for_prediction(evidence, engagement=engagement)
+    import numpy as np
+    # Column order comes from the model's own ``feature_names_in_`` (see
+    # ``_derive_feature_names``), so passing a plain array is equivalent to a
+    # frame with those names -- sklearn's warning about "valid feature names"
+    # is a false positive here.
+    import warnings
+    x = np.array([[feats.get(col, 0.0) for col in feature_names]],
+                  dtype=np.float64)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            proba = model.predict_proba(x)[0]
+        return [float(v) for v in proba.tolist()]
+    except Exception:
+        return None
+
+
+def build_ml_cache(config: Dict[str, Any]) -> None:
+    """Derive + cache feature_names, cat_values, and median_imputations.
+
+    Must be called after ``load_artifacts`` succeeds (config["model"] is set).
+    Safe to call repeatedly; only re-derives when the config changes.
+    """
+    if config is _ml_cache.get("config"):
+        return
+    _ml_cache["config"] = config
+    if config.get("model") is not None:
+        _ml_cache["feature_names"] = _derive_feature_names(config)
+        _ml_cache["cat_values"] = _widen_cat_values(_ml_cache["feature_names"])
+    else:
+        _ml_cache["feature_names"] = _derive_feature_names(config)
+        _ml_cache["cat_values"] = dict(KNOWN_CAT_VALUES)
+    _ml_cache["median_imputations"] = _derive_median_imputations(config)
+
+
+def get_ml_config() -> Dict[str, Any]:
+    """Return the cached ML config, loading artifacts on first call."""
+    cfg = _ml_cache.get("config")
+    if cfg is None:
+        cfg = load_artifacts()
+        build_ml_cache(cfg)
+    return cfg
