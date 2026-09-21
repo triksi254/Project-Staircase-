@@ -53,7 +53,8 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
 )
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import (StratifiedGroupKFold, StratifiedKFold,
+                                     train_test_split)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -90,21 +91,6 @@ CATEGORICAL = [
     "previous_application_mentioned",
 ]
 
-# Numeric (median-imputed).
-NUMERIC = [
-    "funding_clarity",
-    "funding_method_present",
-    "has_english_test",
-    "note_word_count",
-    # engagement: synthetic-only, NaN for real -> imputed
-    "message_count",
-    "avg_delay_s",
-    "question_category_entropy",
-    "visa_intent_mentioned",
-    "returning_session",
-    "session_word_count",
-]
-
 TARGET = "label"
 SOURCE = "source"
 
@@ -120,7 +106,8 @@ ENGAGEMENT = [
     "session_word_count",
 ]
 
-# Numeric (median-imputed).
+# Numeric (median-imputed). Engagement columns are synthetic-only (NaN for real
+# leads); ``leads.hybrid.NUMERIC`` mirrors this list and a test pins the equality.
 NUMERIC = [
     "funding_clarity",
     "funding_method_present",
@@ -178,16 +165,53 @@ def load_synthetic(data_dir: Path = DATA_DIR) -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------- #
+# LEAD IDENTITY (repeated assessments of one lead)
+# --------------------------------------------------------------------------- #
+def _clean_lead_id(value: Any) -> str:
+    """Canonical CRM id string; ``""`` when the id is missing/blank."""
+    import re
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        if value != value:
+            return ""
+        return str(int(value)) if value.is_integer() else str(value)
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    s = str(value).strip()
+    if s.lower() in ("", "nan", "none"):
+        return ""
+    if re.fullmatch(r"\d+\.0+", s):          # "375732.0" from a float CSV read
+        s = s.split(".")[0]
+    return s
+
+
+def lead_groups(frame: pd.DataFrame, id_col: str = "crm_id") -> List[str]:
+    """One group id per row: the CRM id, or a unique id when it is missing.
+
+    39% of the labelled counsellor rows belong to a CRM id that occurs more
+    than once (repeat assessments of one lead, almost always the same label).
+    Splitting rows independently therefore puts a same-lead sibling in train
+    for 38-42% of holdout rows; splitting by these groups does not.
+    """
+    ids = list(frame[id_col]) if id_col in frame.columns else [None] * len(frame)
+    return [(_clean_lead_id(v) or "__row%d" % i) for i, v in enumerate(ids)]
+
+
+# --------------------------------------------------------------------------- #
 # SCHEMA ALIGNMENT
 # --------------------------------------------------------------------------- #
-def align_schema(*frames: pd.DataFrame) -> pd.DataFrame:
+def align_schema(*frames: pd.DataFrame,
+                 extra_cols: Tuple[str, ...] = ()) -> pd.DataFrame:
     """Bring frames onto a common column set and drop unusable labels.
 
     Missing columns become NaN (so the median imputer handles them). Rows whose
     ``label`` is not in {0, 1, 2} are removed -- this includes the ``-1``
-    "unrated" rows produced by ``leads.features``.
+    "unrated" rows produced by ``leads.features``. ``extra_cols`` (e.g.
+    ``("crm_id",)``) are carried through untouched for grouping; they are never
+    model features and the default (none) leaves every existing caller as is.
     """
-    keep = CATEGORICAL + NUMERIC + [TARGET, SOURCE]
+    keep = CATEGORICAL + NUMERIC + [TARGET, SOURCE] + list(extra_cols)
     prepared: List[pd.DataFrame] = []
     for df in frames:
         if df is None or df.empty:
@@ -341,12 +365,23 @@ def feature_importances(model, feature_names: List[str]) -> Dict[str, float]:
 # EXPERIMENTS
 # --------------------------------------------------------------------------- #
 def experiment_combined(combined, ablate_english, model_kind, test_size=0.2,
-                        no_engagement=False, random_state=RANDOM_STATE):
-    """Headline result (H2): train on combined, test on a combined holdout."""
+                        no_engagement=False, random_state=RANDOM_STATE,
+                        group_by_lead=False):
+    """Headline result (H2): train on combined, test on a combined holdout.
+
+    ``group_by_lead`` keeps every CRM id on one side of the split (synthetic
+    rows carry no id and stay singletons).
+    """
     X, y, feats = build_matrix(combined, ablate_english, no_engagement)
-    X_tr, X_te, y_tr, y_te = train_test_split(
-        X, y, test_size=test_size, stratify=y, random_state=random_state,
-    )
+    if group_by_lead:
+        tr, te = split_real_indices(
+            combined, test_size=test_size, random_state=random_state,
+            groups=lead_groups(combined))
+        X_tr, X_te, y_tr, y_te = X.iloc[tr], X.iloc[te], y[tr], y[te]
+    else:
+        X_tr, X_te, y_tr, y_te = train_test_split(
+            X, y, test_size=test_size, stratify=y, random_state=random_state,
+        )
     model, metrics = fit_and_eval(model_kind, X_tr, y_tr, X_te, y_te)
     metrics["n_train"] = int(len(y_tr))
     metrics["n_test"] = int(len(y_te))
@@ -355,7 +390,7 @@ def experiment_combined(combined, ablate_english, model_kind, test_size=0.2,
 
 
 def split_real_indices(real_frame, test_size=0.2,
-                       random_state=RANDOM_STATE):
+                       random_state=RANDOM_STATE, groups=None):
     """Stratified positional ``(train_idx, holdout_idx)`` for real rows.
 
     Indices are positional into ``real_frame``, which must carry integer
@@ -364,18 +399,35 @@ def split_real_indices(real_frame, test_size=0.2,
     two always use an *identical* split -- the real holdout seen at evaluation
     time is exactly the set excluded from label-model fitting and from the v2
     bootstrap pool.
+
+    ``groups`` (one id per row, see :func:`lead_groups`) makes the split
+    *lead-grouped*: a stratified group split (~``test_size`` of the rows) in
+    which no group appears on both sides. With ``groups=None`` (the default)
+    the split is the original row-level stratified ``train_test_split``,
+    unchanged, so every tagged result stays reproducible.
     """
     y = real_frame[TARGET].to_numpy(dtype=int)
     idx = np.arange(len(y))
-    train_idx, holdout_idx = train_test_split(
-        idx, test_size=test_size, stratify=y, random_state=random_state,
-    )
-    return train_idx, holdout_idx
+    if groups is None:
+        train_idx, holdout_idx = train_test_split(
+            idx, test_size=test_size, stratify=y, random_state=random_state,
+        )
+        return train_idx, holdout_idx
+    grp = list(groups)
+    if len(grp) != len(y):
+        raise ValueError("groups must have one entry per row (%d != %d)"
+                         % (len(grp), len(y)))
+    n_splits = max(2, int(round(1.0 / test_size)))
+    skf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True,
+                               random_state=random_state)
+    train_idx, holdout_idx = next(iter(skf.split(idx, y, groups=grp)))
+    return np.sort(train_idx), np.sort(holdout_idx)
 
 
 def experiment_generalization(combined, ablate_english, model_kind, test_size=0.2,
                               no_engagement=False,
-                              split_random_state=RANDOM_STATE):
+                              split_random_state=RANDOM_STATE,
+                              group_by_lead=False):
     """Does synthetic augmentation improve performance on **real** leads?
 
     Splits the real rows into train/test. Model A sees real-train only; Model B
@@ -397,7 +449,8 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
     X_syn = X_syn.reindex(columns=feats, fill_value=0.0)
 
     tr_idx, te_idx = split_real_indices(
-        real, test_size=test_size, random_state=split_random_state)
+        real, test_size=test_size, random_state=split_random_state,
+        groups=lead_groups(real) if group_by_lead else None)
     X_rtr, X_rte = X_real.iloc[tr_idx], X_real.iloc[te_idx]
     y_rtr, y_rte = y_real[tr_idx], y_real[te_idx]
 
@@ -427,6 +480,7 @@ def experiment_generalization(combined, ablate_english, model_kind, test_size=0.
         "real_train_index": [int(i) for i in tr_idx],
         "real_holdout_index": [int(i) for i in te_idx],
         "n_synthetic_added": int(len(y_syn)),
+        "grouped_by_lead": bool(group_by_lead),
     }
 
 
@@ -446,19 +500,35 @@ def _ci95(values: List[float]) -> Dict[str, float]:
 
 
 def experiment_cv(combined, ablate_english, model_kind, n_splits=5, n_repeats=1,
-                  no_engagement=False):
+                  no_engagement=False, group_by_lead=False):
     """Repeated stratified k-fold: mean, std and 95% CI per metric.
 
     Repeats use different shuffle seeds so the interval is not a single lucky
     split -- important because real Hot has only ~61 examples.
+    ``group_by_lead`` uses ``StratifiedGroupKFold`` on the CRM id so repeated
+    assessments of one lead never straddle a fold (the row-level default lets
+    a same-lead sibling, with the same label, sit in the training folds).
     """
     X, y, _ = build_matrix(combined, ablate_english, no_engagement)
+    groups = lead_groups(combined) if group_by_lead else None
     macro, per_class = [], {lab: [] for lab in LABELS}
     for repeat in range(max(n_repeats, 1)):
-        skf = StratifiedKFold(
-            n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE + repeat,
-        )
-        for tr, te in skf.split(X, y):
+        if groups is None:
+            skf = StratifiedKFold(
+                n_splits=n_splits, shuffle=True,
+                random_state=RANDOM_STATE + repeat,
+            )
+            folds = skf.split(X, y)
+        else:
+            skf = StratifiedGroupKFold(
+                n_splits=n_splits, shuffle=True,
+                random_state=RANDOM_STATE + repeat,
+            )
+            folds = skf.split(X, y, groups=groups)
+        for tr, te in folds:
+            if groups is not None:
+                assert not ({groups[i] for i in tr} & {groups[i] for i in te}), \
+                    "a lead straddles a CV fold"
             _, m = fit_and_eval(model_kind, X.iloc[tr], y[tr], X.iloc[te], y[te])
             macro.append(m["macro_f1"])
             for lab in LABELS:
@@ -466,6 +536,7 @@ def experiment_cv(combined, ablate_english, model_kind, n_splits=5, n_repeats=1,
     return {
         "n_splits": n_splits,
         "n_repeats": max(n_repeats, 1),
+        "grouped_by_lead": bool(group_by_lead),
         "macro_f1": _ci95(macro),
         "per_class": {lab: _ci95(vals) for lab, vals in per_class.items()},
     }
@@ -477,6 +548,18 @@ def experiment_cv(combined, ablate_english, model_kind, n_splits=5, n_repeats=1,
 def schema_report(df: pd.DataFrame) -> Dict[str, Any]:
     """Which expected columns are missing / present, and the label mix."""
     expected = CATEGORICAL + NUMERIC
+    # What build_matrix imputes with, recorded so live inference can reuse it
+    # instead of guessing (``leads.hybrid`` reads ``schema.imputation``).
+    medians = {}
+    for col in NUMERIC:
+        if col in df.columns:
+            med = pd.to_numeric(df[col], errors="coerce").median()
+            medians[col] = 0.0 if pd.isna(med) else round(float(med), 6)
+    modes = {}
+    for col in CATEGORICAL:
+        if col in df.columns and len(df):
+            modes[col] = str(
+                df[col].astype(object).fillna("unknown").astype(str).mode().iloc[0])
     return {
         "columns": list(df.columns),
         "missing_expected": [c for c in expected if c not in df.columns],
@@ -486,6 +569,7 @@ def schema_report(df: pd.DataFrame) -> Dict[str, Any]:
             if int(k) in VALID_LABELS
         },
         "source_counts": {str(k): int(v) for k, v in df[SOURCE].value_counts().items()},
+        "imputation": {"medians": medians, "modes": modes},
     }
 
 
@@ -510,6 +594,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="If >1, run stratified k-fold CV with this many folds")
     ap.add_argument("--cv-repeat", type=int, default=1,
                     help="Number of repeated CV passes (different shuffle seeds)")
+    ap.add_argument("--group-by-lead", action="store_true",
+                    help="keep every CRM id on one side of each split / CV fold "
+                         "(removes same-lead leakage; default is row-level)")
     ap.add_argument("--data-dir", type=Path, default=DATA_DIR)
     ap.add_argument("--out", type=Path, default=MODELS_DIR)
     args = ap.parse_args(argv)
@@ -525,13 +612,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
     print(f"Real rows loaded:       {len(real)}")
 
+    extra = ("crm_id",) if args.group_by_lead else ()
     if args.no_synthetic:
-        combined = align_schema(real)
+        combined = align_schema(real, extra_cols=extra)
         print("Synthetic:              disabled (--no-synthetic)")
     else:
         synth = load_synthetic(args.data_dir)
         print(f"Synthetic rows loaded:  {len(synth)}")
-        combined = align_schema(real, synth)
+        combined = align_schema(real, synth, extra_cols=extra)
+    if args.group_by_lead:
+        print("Split / CV:             lead-grouped (CRM id never straddles)")
 
     if combined.empty:
         print("ERROR: no usable labelled rows after schema alignment.", file=sys.stderr)
@@ -551,7 +641,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # [1] Headline: combined train/test
     model, metrics = experiment_combined(
         combined, args.ablate_english, args.model,
-        no_engagement=args.no_engagement,
+        no_engagement=args.no_engagement, group_by_lead=args.group_by_lead,
     )
     print("\n[1] Combined train/test (headline H2)")
     print(f"    macro F1 : {metrics['macro_f1']:.4f}")
@@ -574,7 +664,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not args.no_synthetic:
         gen = experiment_generalization(
             combined, args.ablate_english, args.model,
-            no_engagement=args.no_engagement,
+            no_engagement=args.no_engagement, group_by_lead=args.group_by_lead,
         )
         if gen:
             print("\n[3] Generalization (evaluated on real-only holdout)")
@@ -590,7 +680,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.cv and args.cv > 1:
         cv = experiment_cv(combined, args.ablate_english, args.model,
                            n_splits=args.cv, n_repeats=args.cv_repeat,
-                           no_engagement=args.no_engagement)
+                           no_engagement=args.no_engagement,
+                           group_by_lead=args.group_by_lead)
         print(f"\n[4] {args.cv}-fold stratified CV x{args.cv_repeat} repeat(s)")
         mac = cv["macro_f1"]
         print(f"    macro F1 = {mac['mean']:.4f} +/- {mac['std']:.4f}  "

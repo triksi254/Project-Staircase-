@@ -1,0 +1,168 @@
+{
+  "protocol": {
+    "seed": 42,
+    "split": "lead-grouped 80/20; holdout untouched",
+    "n_train": 688,
+    "ml_features": "counsellor-form profile features (no engagement)",
+    "oof_folds": 5,
+    "rf": {
+      "n_estimators": 300,
+      "class_weight": "balanced"
+    },
+    "label_cuts": "leads.hybrid.score_to_label (tertiles)",
+    "real_rows": "data/processed"
+  },
+  "rubric_label_agreement_on_train": 0.189,
+  "lead_grouped_oof": {
+    "best_alpha": 0.1,
+    "best_macro_f1": 0.6226,
+    "ml_only_macro_f1 (alpha=0)": 0.6207,
+    "rule_only_macro_f1 (alpha=1)": 0.1662,
+    "at_default_alpha_0.5_macro_f1": 0.4714,
+    "grid": [
+      {
+        "alpha": 0.0,
+        "macro_f1": 0.6207,
+        "accuracy": 0.6991,
+        "mae": 0.1761
+      },
+      {
+        "alpha": 0.1,
+        "macro_f1": 0.6226,
+        "accuracy": 0.7006,
+        "mae": 0.19
+      },
+      {
+        "alpha": 0.2,
+        "macro_f1": 0.599,
+        "accuracy": 0.673,
+        "mae": 0.2053
+      },
+      {
+        "alpha": 0.3,
+        "macro_f1": 0.5565,
+        "accuracy": 0.6177,
+        "mae": 0.2229
+      },
+      {
+        "alpha": 0.4,
+        "macro_f1": 0.5051,
+        "accuracy": 0.5509,
+        "mae": 0.2427
+      },
+      {
+        "alpha": 0.5,
+        "macro_f1": 0.4714,
+        "accuracy": 0.5044,
+        "mae": 0.2635
+      },
+      {
+        "alpha": 0.6,
+        "macro_f1": 0.3838,
+        "accuracy": 0.3983,
+        "mae": 0.2872
+      },
+      {
+        "alpha": 0.7,
+        "macro_f1": 0.3225,
+        "accuracy": 0.3343,
+        "mae": 0.3115
+      },
+      {
+        "alpha": 0.8,
+        "macro_f1": 0.2142,
+        "accuracy": 0.2267,
+        "mae": 0.3371
+      },
+      {
+        "alpha": 0.9,
+        "macro_f1": 0.1917,
+        "accuracy": 0.1991,
+        "mae": 0.3645
+      },
+      {
+        "alpha": 1.0,
+        "macro_f1": 0.1662,
+        "accuracy": 0.1773,
+        "mae": 0.3924
+      }
+    ]
+  },
+  "row_level_oof": {
+    "best_alpha": 0.0,
+    "best_macro_f1": 0.6741,
+    "ml_only_macro_f1 (alpha=0)": 0.6741,
+    "rule_only_macro_f1 (alpha=1)": 0.1662,
+    "at_default_alpha_0.5_macro_f1": 0.5174,
+    "grid": [
+      {
+        "alpha": 0.0,
+        "macro_f1": 0.6741,
+        "accuracy": 0.75,
+        "mae": 0.1531
+      },
+      {
+        "alpha": 0.1,
+        "macro_f1": 0.6643,
+        "accuracy": 0.7398,
+        "mae": 0.1702
+      },
+      {
+        "alpha": 0.2,
+        "macro_f1": 0.6469,
+        "accuracy": 0.7195,
+        "mae": 0.1887
+      },
+      {
+        "alpha": 0.3,
+        "macro_f1": 0.6163,
+        "accuracy": 0.6846,
+        "mae": 0.2092
+      },
+      {
+        "alpha": 0.4,
+        "macro_f1": 0.5592,
+        "accuracy": 0.6119,
+        "mae": 0.232
+      },
+      {
+        "alpha": 0.5,
+        "macro_f1": 0.5174,
+        "accuracy": 0.5509,
+        "mae": 0.2557
+      },
+      {
+        "alpha": 0.6,
+        "macro_f1": 0.4167,
+        "accuracy": 0.4317,
+        "mae": 0.2808
+      },
+      {
+        "alpha": 0.7,
+        "macro_f1": 0.31,
+        "accuracy": 0.314,
+        "mae": 0.3073
+      },
+      {
+        "alpha": 0.8,
+        "macro_f1": 0.2127,
+        "accuracy": 0.2238,
+        "mae": 0.3352
+      },
+      {
+        "alpha": 0.9,
+        "macro_f1": 0.1896,
+        "accuracy": 0.1962,
+        "mae": 0.3637
+      },
+      {
+        "alpha": 1.0,
+        "macro_f1": 0.1662,
+        "accuracy": 0.1773,
+        "mae": 0.3924
+      }
+    ]
+  },
+  "reading": "Lead-grouped OOF: best alpha 0.1 (macro F1 0.6226) vs ML-only 0.6207, rule-only 0.1662 and the default alpha=0.5 at 0.4714. Row-level OOF (same-lead siblings across folds) gives best alpha 0.0 at 0.6741.",
+  "caveat": "Calibrated on the counsellor-form rubric and profile model. The live chat rule score is the rubric over chat-observable topics only, so this alpha does not transfer to the dashboard; artifacts/config.json keeps the documented default."
+}

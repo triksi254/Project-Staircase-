@@ -25,6 +25,19 @@ adds a `distill` self-distillation control alongside `real-only` / `+v1` / `+v2`
 predict_proba on those same train rows; RF2 is trained on 688 hard-labelled real
 rows plus 688 soft-label probes (weight 1.0 each). No synthetic features.
 
+Lead-grouped protocol (``--group-split``)
+-----------------------------------------
+39% of the labelled counsellor rows belong to a CRM id that occurs more than
+once, and under the row-level split above 38-42% of holdout rows have a
+same-lead sibling in train (always with the same label). ``--group-split``
+replaces the row split with a stratified *group* split on the CRM id, so no
+lead straddles train and holdout (and therefore the v2 label model and
+bootstrap pool, which are train-only, never see a sibling of a holdout row).
+It writes ``leads/RESULTS_v2_grouped.md`` and ``artifacts/eval_augmentation_
+grouped*.json``; the default (row-level) run and its tagged artifacts are
+untouched. ``--render-only`` re-renders the markdown from an existing payload
+without recomputing anything.
+
 Seed robustness
 ---------------
 ``--seeds 1,7,42`` re-runs the *entire* pipeline once per seed: the same value
@@ -77,8 +90,10 @@ BOOTSTRAP_POOLS = ("train", "all")
 #: Fixed protocol split seed -- matches ``train_ml.RANDOM_STATE``.
 SPLIT_SEED = 42
 TRAIN_FRACTION = 0.8
-#: Previously reported v2 delta, kept only to word the verdict.
+#: Seed-42 full-set v2 delta measured with the pre-fix (leaky) bootstrap pool,
+#: kept only to compare against the leakage-safe seed-42 row of the sweep.
 PREVIOUS_V2_DELTA = 0.1184
+PREVIOUS_V2_SEED = 42
 #: Number of bootstrap resamples of the holdout predictions for the 95% CIs.
 BOOTSTRAP_RESAMPLES = 1000
 #: |d(+v2) - d(+distill)| below this is read as self-distillation confirmed.
@@ -127,9 +142,12 @@ def _sessions_frame(sessions: List[Dict[str, Any]]):
     return df
 
 
-def _combined(real_df, synth_df):
+def _combined(real_df, synth_df, group_split=False):
     from leads.train_ml import align_schema
-    return align_schema(real_df, synth_df)
+    # crm_id is carried only for the lead-grouped protocol: the default path
+    # keeps its exact dtypes so the tagged results stay reproducible.
+    extra = ("crm_id",) if group_split else ()
+    return align_schema(real_df, synth_df, extra_cols=extra)
 
 
 def _row_dict(row) -> Dict[str, Any]:
@@ -157,7 +175,18 @@ def _rubric_label(row_dict: Dict[str, Any]) -> Optional[int]:
 # --------------------------------------------------------------------------- #
 # LEAKAGE-SAFE SPLIT
 # --------------------------------------------------------------------------- #
-def split_labeled_rows(real_df, test_size=0.2, random_state=SPLIT_SEED):
+def lead_overlap_report(groups, train_idx, holdout_idx):
+    """How many holdout rows have a same-lead sibling in the train split."""
+    train = {groups[i] for i in train_idx}
+    total = len(holdout_idx)
+    n = sum(1 for i in holdout_idx if groups[i] in train)
+    return {"n_holdout_rows": int(total),
+            "n_holdout_rows_with_train_sibling": int(n),
+            "share": round(n / total, 4) if total else 0.0}
+
+
+def split_labeled_rows(real_df, test_size=0.2, random_state=SPLIT_SEED,
+                       group_split=False):
     """Stratified train/holdout split of the labelled real rows.
 
     Returns a dict with the aligned frame (carrying a global ``row_id``), the
@@ -169,14 +198,27 @@ def split_labeled_rows(real_df, test_size=0.2, random_state=SPLIT_SEED):
     bootstrap pool must never see.
     """
     import numpy as np
-    from leads.train_ml import align_schema, split_real_indices
+    from leads.train_ml import align_schema, lead_groups, split_real_indices
 
-    real_all = align_schema(real_df).reset_index(drop=True)
+    extra = ("crm_id",) if group_split else ()
+    real_all = align_schema(real_df, extra_cols=extra).reset_index(drop=True)
     real_all["row_id"] = np.arange(len(real_all), dtype=int)
+    # Lead identity is measured on every run (grouped or not) so the report can
+    # state how much of the holdout has a same-lead sibling in train.
+    groups = lead_groups(
+        align_schema(real_df, extra_cols=("crm_id",)).reset_index(drop=True))
     train_idx, holdout_idx = split_real_indices(
-        real_all, test_size=test_size, random_state=random_state)
+        real_all, test_size=test_size, random_state=random_state,
+        groups=groups if group_split else None)
     train_df = real_all.iloc[train_idx].reset_index(drop=True)
     holdout_df = real_all.iloc[holdout_idx].reset_index(drop=True)
+    overlap = lead_overlap_report(groups, train_idx, holdout_idx)
+    if group_split:
+        row_tr, row_te = split_real_indices(
+            real_all, test_size=test_size, random_state=random_state)
+        row_overlap = lead_overlap_report(groups, row_tr, row_te)
+    else:
+        row_overlap = overlap
     return {
         "aligned": real_all,
         "train": train_df,
@@ -189,6 +231,9 @@ def split_labeled_rows(real_df, test_size=0.2, random_state=SPLIT_SEED):
         "n_holdout": int(len(holdout_df)),
         "seed": int(random_state),
         "test_size": float(test_size),
+        "grouped_by_lead": bool(group_split),
+        "lead_overlap": overlap,
+        "row_split_lead_overlap": row_overlap,
     }
 
 
@@ -461,6 +506,7 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
                     split=None,
                     label_model: Optional["CounsellorLabelModel"] = None,
                     split_random_state: int = SPLIT_SEED,
+                    group_split: bool = False,
                     ) -> Dict[str, Any]:
     """Headline + real-holdout generalization for real-only, +v1, +v2, +distill.
 
@@ -481,13 +527,14 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
         experiment_generalization,
     )
 
-    real_combined = align_schema(real_df)
+    extra = ("crm_id",) if group_split else ()
+    real_combined = align_schema(real_df, extra_cols=extra)
     results: Dict[str, Any] = {}
     for feature_set in feature_sets:
         no_engagement = feature_set == "no-engagement"
         _, real_head = experiment_combined(
             real_combined, False, model_kind, no_engagement=no_engagement,
-            random_state=split_random_state)
+            random_state=split_random_state, group_by_lead=group_split)
         entry: Dict[str, Any] = {
             "real_only": {
                 "headline_macro_f1": real_head["macro_f1"],
@@ -499,13 +546,14 @@ def run_experiments(real_df, corpora: Dict[str, Any], model_kind: str = "rf",
             "generators": {},
         }
         for gen, synth_df in corpora.items():
-            combined = _combined(real_df, synth_df)
+            combined = _combined(real_df, synth_df, group_split)
             gen_result = experiment_generalization(
                 combined, False, model_kind, no_engagement=no_engagement,
-                split_random_state=split_random_state)
+                split_random_state=split_random_state,
+                group_by_lead=group_split)
             _, head = experiment_combined(
                 combined, False, model_kind, no_engagement=no_engagement,
-                random_state=split_random_state)
+                random_state=split_random_state, group_by_lead=group_split)
             entry["generators"][gen] = {
                 "headline_macro_f1": head["macro_f1"],
                 "headline_per_class": head["per_class"],
@@ -655,14 +703,20 @@ def _seed_verdict(summary: Dict[str, Any], gen: str = "v2") -> Optional[Dict[str
 
 
 def _overall_seed_verdict(robust: Dict[str, Any], cfg: Dict[str, Any]) -> str:
-    """One-line verdict, keyed on the full feature set (the headline claim)."""
-    primary = "full" if "full" in robust["feature_sets"] else cfg["feature_sets"][0]
+    """One-line verdict. Leads with the fair (no-engagement) configuration.
+
+    The no-engagement set is the like-for-like comparison: real rows carry no
+    engagement features, so in the ``full`` set engagement alone identifies a
+    row's source. The ``full`` verdict is reported second, with that caveat.
+    """
+    sets = list(robust["feature_sets"])
+    primary = "no-engagement" if "no-engagement" in sets else sets[0]
     block = robust["feature_sets"][primary]
     verdict = _seed_verdict(block["summary"], "v2")
     if verdict is None:
         return "Verdict: n/a (no evaluable across-seed delta for %s)." % primary
     detail = ""
-    others = [fs for fs in robust["feature_sets"] if fs != primary]
+    others = [fs for fs in sets if fs != primary]
     if others:
         parts = []
         for fs in others:
@@ -673,7 +727,14 @@ def _overall_seed_verdict(robust: Dict[str, Any], cfg: Dict[str, Any]) -> str:
                              % (fs, v["tier"], rec["min"], rec["max"]))
         if parts:
             detail = " Other feature sets: %s." % "; ".join(parts)
-    return "Verdict: **%s** -- %s.%s" % (verdict["tier"], verdict["reason"], detail)
+    note = (" Tiers are descriptive rules on the across-seed range (min > +0.02 "
+            "= ROBUST), not significance tests, and %d seeds re-split the same "
+            "rows." % robust["n_seeds"])
+    if "full" in others:
+        note += (" The full configuration's gain depends on engagement columns "
+                 "that are constant (0) for every real row.")
+    return "Verdict (%s configuration): **%s** -- %s.%s%s" % (
+        primary, verdict["tier"], verdict["reason"], detail, note)
 
 
 # --------------------------------------------------------------------------- #
@@ -821,6 +882,52 @@ def _significance(summary, key="significant_macro"):
     return "yes" if summary.get(key) else "no"
 
 
+def _render_row_vs_grouped(payload: Dict[str, Any]) -> List[str]:
+    """Same-seed comparison with the committed row-level payload (grouped runs)."""
+    if not (payload.get("split") or {}).get("grouped_by_lead"):
+        return []
+    fp = PROJECT_ROOT / "artifacts" / "eval_augmentation.json"
+    try:
+        base = json.loads(fp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    a = (base.get("seed_robustness") or {}).get("feature_sets") or {}
+    b = (payload.get("seed_robustness") or {}).get("feature_sets") or {}
+    lines: List[str] = [
+        "## 5b. Row-level vs lead-grouped split (same seeds)", "",
+        "Deltas are holdout macro F1 minus the same run's real-only baseline;",
+        "`mean [min, max]` over the seeds. Row-level = `leads/RESULTS_v2.md`.", "",
+        "| Feature set | Variant | Row-level | Lead-grouped |",
+        "|---|---|---|---|"]
+    for fs in b:
+        if fs not in a:
+            continue
+        for g in DELTA_VARIANTS:
+            ra = a[fs]["summary"][g]["macro"]
+            rb = b[fs]["summary"][g]["macro"]
+            lines.append("| %s | +%s | %s [%s, %s] | %s [%s, %s] |" % (
+                fs, g, _signed(ra["mean"]), _signed(ra["min"]), _signed(ra["max"]),
+                _signed(rb["mean"]), _signed(rb["min"]), _signed(rb["max"])))
+    lines += ["", "Real-only baseline (holdout macro F1 / Hot F1) per seed:", "",
+              "| Feature set | Seed | Row-level macro / Hot | Lead-grouped macro / Hot |",
+              "|---|---|---|---|"]
+    for fs in b:
+        if fs not in a:
+            continue
+        rows_a = {r["seed"]: r for r in a[fs]["rows"]}
+        for r in b[fs]["rows"]:
+            o = rows_a.get(r["seed"])
+            if o is None:
+                continue
+            lines.append("| %s | %d | %s / %s | %s / %s |" % (
+                fs, r["seed"], _fmt(o["real_only_macro"]), _fmt(o["real_only_hot"]),
+                _fmt(r["real_only_macro"]), _fmt(r["real_only_hot"])))
+    lines += ["", "*A grouped holdout is a different set of ~173 rows, so the",
+              "baselines move by sampling noise (about 12-13 Hot rows each) in",
+              "either direction; only the augmentation deltas are compared here.*", ""]
+    return lines
+
+
 def _render_seed_robustness(robust: Dict[str, Any], cfg: Dict[str, Any]) -> List[str]:
     """Tables E / E2 -- holdout macro F1 and Hot F1 per variant per seed."""
     lines: List[str] = []
@@ -909,10 +1016,20 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines: List[str] = []
     add = lines.append
 
-    add("# Augmentation Evaluation v2 - leakage-safe protocol")
+    grouped = bool(split.get("grouped_by_lead"))
+    add("# Augmentation Evaluation v2 - %s"
+        % ("lead-grouped split, leakage-safe protocol" if grouped
+           else "leakage-safe protocol (row-level split)"))
     add("")
     add("Generated by `python -m leads.eval_augmentation` on %s."
         % payload["generated_at"])
+    if payload.get("_rendered_from"):
+        add("")
+        add("> Re-rendered on %s from `%s` without recomputation: the numbers are"
+            % (payload.get("_rendered_at", "?"), payload["_rendered_from"]))
+        add("> unchanged; only the explanatory text was corrected (an earlier")
+        add("> version hard-coded a seed-42 figure and a verdict that contradicted")
+        add("> its own Table E).")
     add("")
     add("## 0. Protocol")
     add("")
@@ -931,6 +1048,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("| split seed | %d |" % split["seed"])
     add("| train rows (80%%) | %d |" % split["n_train"])
     add("| holdout rows (20%%, untouched) | %d |" % split["n_holdout"])
+    add("| split type | %s |" % ("lead-grouped (a CRM id never straddles "
+                                 "train and holdout)" if grouped
+                                 else "row-level stratified"))
+    lo = split.get("lead_overlap")
+    if lo:
+        add("| holdout rows with a same-lead sibling in train | %d of %d (%.0f%%) |"
+            % (lo["n_holdout_rows_with_train_sibling"], lo["n_holdout_rows"],
+               100 * lo["share"]))
+    ro = split.get("row_split_lead_overlap")
+    if grouped and ro:
+        add("| ... under the row-level split (reference) | %d of %d (%.0f%%) |"
+            % (ro["n_holdout_rows_with_train_sibling"], ro["n_holdout_rows"],
+               100 * ro["share"]))
     add("| bootstrap pool | %s |" % cfg["bootstrap_pool"])
     add("| label model fit rows | %d |" % agreement["label_model"]["n_train"])
     add("| v2 source rows used | %d |" % leak["n_source_rows_used"])
@@ -943,16 +1073,26 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("Train label mix: %s. Holdout label mix: %s."
         % (split["train_label_distribution"], split["holdout_label_distribution"]))
     add("")
-    add("Residual caveats (unchanged from the pre-leakage-safe pipeline): v1")
-    add("persona priors and the v2 engagement/behaviour pools were measured on")
-    add("the full historical corpus; they only shape synthetic engagement values")
-    add("(constant 0 for real rows) and never touch the label model or the")
-    add("profile bootstrap pool. Median imputation inside")
-    add("`experiment_generalization` is still fitted on the whole real frame to")
-    add("keep these numbers comparable with `leads/RESULTS.md`.")
+    add("Residual caveats (unchanged from the pre-leakage-safe pipeline):")
+    add("")
+    add("- The v1 profile marginals in `leads/personas.py` were measured on the")
+    add("  full labelled corpus (holdout included). They shape v1's *profile*")
+    add("  features; v1 still loses, so the bias is in v1's favour and the")
+    add("  conclusion stands, but the leak is real for v1.")
+    add("- The v1/v2 engagement (behaviour) pools are **hand-authored** ranges,")
+    add("  not measured from data (no chat logs exist). In the `full` set they")
+    add("  are the only signal separating synthetic from real rows.")
+    add("- Median imputation inside `experiment_generalization` is fitted on the")
+    add("  whole real frame to stay comparable with `leads/RESULTS.md`; real")
+    add("  profile columns have no NaN and engagement is constant 0, so this")
+    add("  changes nothing measurable.")
     add("")
 
     add("## 1. Table A - real-holdout macro F1")
+    add("")
+    add("*Tables A-D show a single run: generator/split seed %d (the first seed"
+        % cfg["seed"])
+    add("of the sweep, not a chosen one). Table E shows every seed.*")
     add("")
     add("Train on the %d train rows, score on the %d untouched holdout rows."
         % (split["n_train"], split["n_holdout"]))
@@ -1062,19 +1202,21 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("| **overall** | **%d** | **%s** |" % (rv["n"], _fmt(rv["agreement"])))
     add("")
 
-    mech = _mechanism(payload, feature_set=cfg["feature_sets"][0])
+    fs0 = cfg["feature_sets"][0]
+    mech = _mechanism(payload, feature_set=fs0)
     add("## 4. Verdict")
     add("")
     add(_verdict(payload))
     add("")
     add("### 4a. Mechanism: self-distillation test (Table D)")
     add("")
-    add("The v2 augmentation gain of +0.1188 (full feature set) was tested")
-    add("against a self-distillation control (`+distill`) that uses no synthetic")
-    add("features: RF1 (the train-fitted CounsellorLabelModel) produces soft")
-    add("``predict_proba`` probes on the same train rows, and RF2 trains on 688")
-    add("hard + 688 soft probes. If `+distill` recovers the v2 delta, the gain is")
-    add("driven by label smoothing, not added information.")
+    add("The v2 delta of %s (%s feature set, seed %d) was compared with a"
+        % (_signed(mech["d_v2"]), fs0, cfg["seed"]))
+    add("self-distillation control (`+distill`) that adds no synthetic rows: RF1")
+    add("(the train-fitted CounsellorLabelModel) produces `predict_proba` on the")
+    add("same train rows and RF2 trains on the 688 hard rows plus those soft")
+    add("probes. If `+distill` reproduced the v2 delta, the gain would be label")
+    add("smoothing rather than added information.")
     add("")
     add("| Comparison | Delta macro F1 | Interpretation |")
     add("|---|---|---|")
@@ -1083,26 +1225,28 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     incr = mech["increment"]
     add("| +v2 vs real-only | %s | augmentation total effect |" % _signed(d_v2))
     add("| +distill vs real-only | %s | distillation-only effect |" % _signed(d_dt))
-    add("| +v2 vs +distill | %s | incremental effect of synthetic features |" % _signed(incr))
+    add("| +v2 vs +distill | %s | difference between the two arms |" % _signed(incr))
     add("")
-    add("Delta(+v2) minus delta(+distill) = %s (band %.2f). %s."
-        % (_signed(incr), DISTILL_EQUIVALENCE_BAND,
-           "SELF-DISTILLATION CONFIRMED" if mech["confirmed"]
-           else "AUGMENTATION EFFECT SURVIVES"))
+    add("Delta(+v2) minus delta(+distill) = %s (descriptive band %.2f; no CI)."
+        % (_signed(incr), DISTILL_EQUIVALENCE_BAND))
+    add("Tag: %s." % ("SELF-DISTILLATION CONFIRMED" if mech["confirmed"]
+                      else "AUGMENTATION EFFECT SURVIVES"))
     add("")
-    add("> The v2 augmentation gain of +0.1188 was tested against a")
-    add("> self-distillation control that uses no synthetic features. %s"
-        % ("The control recovers the v2 delta, so we interpret the v2 result"
-           " as self-distillation (RF1 label smoothing), and caution that"
-           " positive augmentation deltas in this domain require a"
-           " distillation control before being attributed to added"
-           " information."
+    add("> %s"
+        % ("The control reproduces the v2 delta to within the band, which is"
+           " consistent with label smoothing rather than added information."
            if mech["confirmed"]
-           else "The control does not recover the v2 delta, so we interpret"
-           " the v2 result as a genuine augmentation effect beyond label"
-           " smoothing. Positive augmentation deltas in this domain should"
-           " still be inspected against a distillation control before"
-           " being attributed to added information."))
+           else "The control does not reproduce the v2 delta within the band."
+           " That does not by itself show that synthetic features add"
+           " information, because the control is not like-for-like with +v2."))
+    add(">")
+    add("> **Caveat.** The control differs from +v2 in more than the presence of")
+    add("> synthetic rows: (i) 4 x 688 rows with sample weights instead of 1000")
+    add("> fresh bootstrap rows with sampled hard labels; (ii) its soft labels are")
+    add("> RF1's *in-sample* probabilities; (iii) `class_weight=\"balanced\"` is")
+    add("> recomputed on the expanded label vector, changing the effective class")
+    add("> weighting; (iv) it has no engagement variation. The no-engagement rows")
+    add("> of Table E are the cleaner test of whether synthetic *profiles* help.")
     add("")
     add("Supporting detail:")
     add("")
@@ -1117,20 +1261,46 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     add("")
     add("Leakage check: %d of %d holdout rows appear in the v2 bootstrap pool"
         % (leak["n_holdout_rows_in_bootstrap_pool"], leak["n_holdout_rows"]))
-    add("(bootstrap pool = `%s`)." % cfg["bootstrap_pool"])
+    add("(bootstrap pool = `%s`). This is a *row-level* check. Lead-level:" % cfg["bootstrap_pool"])
+    if lo:
+        add("%d of %d holdout rows (%.0f%%) have a same-lead sibling in the train"
+            % (lo["n_holdout_rows_with_train_sibling"], lo["n_holdout_rows"],
+               100 * lo["share"]))
+        add("split%s." % ("" if not grouped else " (0 expected: the split is lead-grouped)"))
+    else:
+        add("not recorded in this payload (produced before the lead-level check).")
     add("")
 
     if payload.get("seed_robustness"):
         lines.extend(_render_seed_robustness(payload["seed_robustness"], cfg))
+        lines.extend(_render_row_vs_grouped(payload))
 
-    add("## 6. Reproduce")
+    add("## 6. Limitations of this evaluation")
+    add("")
+    add("- The real holdout has about 12 Hot rows, so every Hot F1 rests on ~12")
+    add("  positives; a single prediction moves it by 0.05-0.1.")
+    add("- The bootstrap CIs resample the holdout *predictions* only: they capture")
+    add("  test-sampling variance, not training variance or split variance.")
+    add("- Seeds re-split the same rows, so holdouts overlap across seeds; the v2")
+    add("  design was iterated against the seed-42 holdout. There is no final")
+    add("  untouched test set.")
+    add("- The +distill control is not like-for-like with +v2 (see 4a).")
+    add("- In the `full` set real rows have engagement = 0 and synthetic rows > 0.")
+    add("- %s" % ("Lead-level leakage is removed by the grouped split; compare with "
+                  "`leads/RESULTS_v2.md` for the row-level numbers." if grouped
+                  else "Lead-level leakage is NOT removed here (see the protocol table); "
+                  "`leads/RESULTS_v2_grouped.md` reports the lead-grouped split."))
+    add("")
+
+    add("## 7. Reproduce")
     add("")
     add("```bash")
     add("python -m leads.personas --n %d --seed %d --generator v2 "
         "--bootstrap-pool %s" % (cfg["n"], cfg["seed"], cfg["bootstrap_pool"]))
     add("python -m leads.eval_augmentation --n %d --seed %d --model %s "
-        "--bootstrap-pool %s"
-        % (cfg["n"], cfg["seed"], cfg["model"], cfg["bootstrap_pool"]))
+        "--bootstrap-pool %s%s"
+        % (cfg["n"], cfg["seed"], cfg["model"], cfg["bootstrap_pool"],
+           " --group-split" if grouped else ""))
     add("python -m pytest tests/test_personas_v2.py -q   # incl. test_no_holdout_leakage")
     add("python -m pytest tests/test_distill_control.py -q  # incl. test_distill_variant_runs")
     add("```")
@@ -1140,42 +1310,68 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _previous_seed_check(payload: Dict[str, Any]) -> str:
+    """Compare the leakage-safe seed-42 full delta with the pre-fix figure."""
+    if (payload.get("split") or {}).get("grouped_by_lead"):
+        return ""      # the pre-fix figure was a row-level number; see RESULTS_v2.md
+    rows = ((((payload.get("seed_robustness") or {}).get("feature_sets") or {})
+             .get("full") or {}).get("rows") or [])
+    for r in rows:
+        if r.get("seed") == PREVIOUS_V2_SEED and r.get("delta_v2_macro") is not None:
+            d = float(r["delta_v2_macro"])
+            diff = d - PREVIOUS_V2_DELTA
+            if abs(diff) < 0.01:
+                return ("The seed-%d full-set delta with the leakage-safe pool (%s) "
+                        "matches the pre-fix figure (%s) to within %.4f, so the "
+                        "earlier bootstrap-pool leak had no material effect on "
+                        "that seed." % (PREVIOUS_V2_SEED, _signed(d),
+                                        _signed(PREVIOUS_V2_DELTA), abs(diff)))
+            return ("The seed-%d full-set delta with the leakage-safe pool (%s) "
+                    "differs from the pre-fix figure (%s) by %s."
+                    % (PREVIOUS_V2_SEED, _signed(d), _signed(PREVIOUS_V2_DELTA),
+                       _signed(diff)))
+    return ""
+
+
 def _verdict(payload: Dict[str, Any]) -> str:
-    """One-line verdict from the corrected (leakage-safe) holdout deltas."""
+    """Verdict from this payload's own seed (plus the sweep, when present)."""
+    cfg = payload["config"]
     deltas: Dict[str, float] = {}
-    for fs in payload["config"]["feature_sets"]:
+    for fs in cfg["feature_sets"]:
         d2 = (payload["results"][fs]["generators"]["v2"]["generalization"]
               or {}).get("delta_macro_f1")
         if d2 is not None:
             deltas[fs] = float(d2)
     if not deltas:
         return "Verdict: n/a (no evaluable real-holdout delta)."
-    best = max(deltas.values())
     detail = ", ".join("%s %+.4f" % (fs, d) for fs, d in deltas.items())
-    if best <= 0.01:
-        return ("Verdict: leakage-safe v2 delta(s) [%s] are negative or within "
-                "+/-0.01 -- a neutral-to-negative result; persona augmentation "
-                "does not improve real-world lead scoring and no third generator "
-                "was attempted." % detail)
-    if best >= PREVIOUS_V2_DELTA - 0.01:
-        mech = _mechanism(payload, feature_set="full")
-        if mech["confirmed"]:
-            mech_str = ("A self-distillation control (+distill, no synthetic "
-                        "features) recovers the v2 delta (increment %s), so the "
-                        "gain is driven by RF1 label smoothing, not added "
-                        "information." % _signed(mech["increment"]))
+    parts = ["Verdict (seed %d): v2 holdout macro-F1 delta(s) [%s]."
+             % (cfg["seed"], detail)]
+    fair = deltas.get("no-engagement")
+    if fair is not None:
+        if fair <= 0.01:
+            parts.append(
+                "In the no-engagement configuration - the fair comparison, "
+                "because real rows carry no engagement features - persona "
+                "augmentation does not improve real-lead scoring (%s)."
+                % _signed(fair))
         else:
-            mech_str = ("The +distill control does not recover the v2 delta "
-                        "(increment %s), so synthetic features contribute "
-                        "beyond label smoothing." % _signed(mech["increment"]))
-        return ("Verdict: leakage-safe v2 delta(s) [%s] stay above +0.01 and match "
-                "the previous magnitude, so the earlier +0.1184 was NOT an "
-                "artefact of the label-model / bootstrap-pool leak. %s No "
-                "third generator was attempted." % (detail, mech_str))
-    return ("Verdict: leakage-safe v2 delta(s) [%s] are positive but below the "
-            "previous +0.1184 -- the earlier figure was partly inflated by the "
-            "leak; no third generator was attempted." % detail)
-
+            parts.append("In the no-engagement configuration augmentation "
+                         "gains %s." % _signed(fair))
+    full = deltas.get("full")
+    if full is not None and full > 0.01 and (fair is None or fair <= 0.01):
+        parts.append(
+            "The positive full-set delta (%s) appears only when engagement "
+            "columns are present; every real row has engagement = 0 there while "
+            "every synthetic row has engagement > 0, so engagement identifies a "
+            "row's source and the gain is not evidence that behavioural "
+            "information transfers to real leads (a hypothesis, not proven)."
+            % _signed(full))
+    prev = _previous_seed_check(payload)
+    if prev:
+        parts.append(prev)
+    parts.append("No third generator was attempted.")
+    return " ".join(parts)
 
 
 # --------------------------------------------------------------------------- #
@@ -1191,13 +1387,19 @@ def _pipeline_for_seed(seed: int, real_df, provenance: str, args,
     """
     from datetime import datetime
 
+    group_split = bool(getattr(args, "group_split", False))
     split = split_labeled_rows(real_df, test_size=1.0 - TRAIN_FRACTION,
-                               random_state=seed)
+                               random_state=seed, group_split=group_split)
     n_real = int(len(split["aligned"]))
 
     print("-" * 70)
     print("SEED %d: split seed=%d -> train=%d holdout=%d"
           % (seed, split["seed"], split["n_train"], split["n_holdout"]))
+    lo = split["lead_overlap"]
+    print("Lead-level overlap: %d of %d holdout rows have a same-lead sibling "
+          "in train (%s split)" % (lo["n_holdout_rows_with_train_sibling"],
+                                   lo["n_holdout_rows"],
+                                   "lead-grouped" if group_split else "row-level"))
     print("Generating v1 and v2 corpora (n=%d, seed=%d) ..."
           % (args.n, seed))
     corpora, label_model, v1_meta, v2_meta = generate_corpora(
@@ -1219,7 +1421,7 @@ def _pipeline_for_seed(seed: int, real_df, provenance: str, args,
     results = run_experiments(real_df, corpora, args.model,
                               feature_sets=feature_sets, split=split,
                               label_model=label_model,
-                              split_random_state=seed)
+                              split_random_state=seed, group_split=group_split)
 
     # The evaluation holdout must be exactly the protocol holdout.
     gen0 = results[feature_sets[0]]["generators"]["v1"]["generalization"] or {}
@@ -1239,6 +1441,7 @@ def _pipeline_for_seed(seed: int, real_df, provenance: str, args,
             "n": args.n, "seed": seed, "model": args.model,
             "bootstrap_pool": args.bootstrap_pool,
             "feature_sets": list(feature_sets),
+            "group_split": group_split,
         },
         "provenance": {"source": provenance, "n_real": n_real},
         "split": {
@@ -1246,6 +1449,9 @@ def _pipeline_for_seed(seed: int, real_df, provenance: str, args,
             "n_train": split["n_train"], "n_holdout": split["n_holdout"],
             "train_label_distribution": _label_distribution(split["train"]),
             "holdout_label_distribution": _label_distribution(split["holdout"]),
+            "grouped_by_lead": split["grouped_by_lead"],
+            "lead_overlap": split["lead_overlap"],
+            "row_split_lead_overlap": split["row_split_lead_overlap"],
         },
         "leakage": leakage,
         "corpora": {
@@ -1281,11 +1487,39 @@ def main(argv: Optional[List[str]] = None) -> int:
                              "row (legacy, leaks the holdout)")
     parser.add_argument("--no-engagement", action="store_true",
                         help="evaluate only the no-engagement feature set")
-    parser.add_argument("--out", type=Path,
-                        default=PROJECT_ROOT / "leads" / "RESULTS_v2.md")
+    parser.add_argument("--group-split", action="store_true",
+                        help="lead-grouped train/holdout split on the CRM id "
+                             "(no lead straddles); writes RESULTS_v2_grouped.md "
+                             "and artifacts/eval_augmentation_grouped*.json")
+    parser.add_argument("--tag", default=None,
+                        help="suffix for the artifact filenames (default: "
+                             "'' or '_grouped' with --group-split)")
+    parser.add_argument("--render-only", action="store_true",
+                        help="re-render the markdown from an existing payload; "
+                             "recomputes nothing and writes no artifacts")
+    parser.add_argument("--from-artifact", type=Path, default=None,
+                        help="payload for --render-only (default: "
+                             "artifacts/eval_augmentation<tag>.json)")
+    parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--artifacts", type=Path,
                         default=PROJECT_ROOT / "artifacts")
     args = parser.parse_args(argv)
+    tag = args.tag if args.tag is not None else (
+        "_grouped" if args.group_split else "")
+    if args.out is None:
+        args.out = PROJECT_ROOT / "leads" / (
+            "RESULTS_v2_grouped.md" if args.group_split else "RESULTS_v2.md")
+
+    if args.render_only:
+        from datetime import date
+        src = args.from_artifact or (args.artifacts / ("eval_augmentation%s.json" % tag))
+        payload = json.loads(Path(src).read_text(encoding="utf-8"))
+        payload["_rendered_from"] = "artifacts/%s" % Path(src).name
+        payload["_rendered_at"] = date.today().isoformat()
+        args.out.write_text(render_markdown(payload), encoding="utf-8")
+        print("Re-rendered %s from %s (no recomputation)" % (args.out, src))
+        return 0
+
     seeds = parse_seeds(args.seeds) if args.seeds else [int(args.seed)]
     feature_sets = ("no-engagement",) if args.no_engagement else FEATURE_SETS
 
@@ -1311,10 +1545,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     args.artifacts.mkdir(parents=True, exist_ok=True)
     # Persist the computed payload FIRST: a rendering failure must never lose
     # 12+ minutes of sweep compute (this is exactly how the earlier run died).
-    payload_path = args.artifacts / "eval_augmentation.json"
+    payload_path = args.artifacts / ("eval_augmentation%s.json" % tag)
     payload_path.write_text(
         json.dumps(payload, indent=2, default=str), encoding="utf-8")
-    robust_path = args.artifacts / "eval_augmentation_seed_robustness.json"
+    robust_path = args.artifacts / (
+        "eval_augmentation%s_seed_robustness.json" % tag)
     if len(seeds) > 1:
         robust_path.write_text(
             json.dumps({"config": payload["config"],
@@ -1342,7 +1577,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if len(seeds) > 1:
         print(_overall_seed_verdict(robust, payload["config"]))
     print("\nWrote: %s" % args.out)
-    print("Wrote: %s" % (args.artifacts / "eval_augmentation.json"))
+    print("Wrote: %s" % payload_path)
     if len(seeds) > 1:
         print("Wrote: %s" % robust_path)
     print("=" * 70)

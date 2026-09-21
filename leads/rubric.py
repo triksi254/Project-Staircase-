@@ -3,7 +3,13 @@
 Converts feature rows from ``leads.features`` into a score in [0, 1] with an
 auditable per-feature rationale. This is the calibration prior for the hybrid
 score ``alpha * rule_score + (1 - alpha) * ml_score`` (proposal Page 8).
-Stdlib-only.
+No ML stack needed (no numpy/pandas/scikit-learn); it imports ``leads.features``,
+which in turn imports the scraper's Pydantic ``models.schemas``.
+
+The label cuts below (0.35 / 0.68) are this module's own descriptive cuts, used
+for the rubric-vs-counsellor agreement table. The hybrid score uses tertiles
+(``leads.hybrid.COLD_WARM_CUT`` / ``WARM_HOT_CUT``); the two disagree only in
+[1/3, 0.35) and [2/3, 0.68) (pinned by ``tests/test_config_consistency.py``).
 """
 from __future__ import annotations
 

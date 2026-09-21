@@ -1,5 +1,13 @@
 # Lead-Scoring Model: Experimental Results
 
+> **Status.** This is the original (row-level) analysis. Two later documents
+> supersede parts of it: [RESULTS_v2.md](RESULTS_v2.md) (leakage-safe v2 generator,
+> distillation control, seed sweep) and [RESULTS_v2_grouped.md](RESULTS_v2_grouped.md)
+> (lead-grouped split). Every number below uses a row-level split or CV, and 39% of
+> the labelled rows belong to a repeated CRM id (38-42% of holdout rows have a
+> same-lead sibling in train), so treat real-data figures as subject to that leak.
+> The "recommended fixes" in section 5 were followed up there.
+
 Produced by `python -m leads.train_ml`. Reproduce with:
 
 ```bash
@@ -67,7 +75,7 @@ Dropping engagement (`_rf_noeng`) removes the artifact and the headline falls to
 
 ### Finding 2 - synthetic augmentation *hurts* real-world performance
 
-Evaluated on a held-out set of **real** leads (172 rows, 80/20 stratified split
+Evaluated on a held-out set of **real** leads (173 rows, 80/20 stratified split
 of the 861 labelled rows):
 
 | Features | real-train only | real + synthetic | delta |

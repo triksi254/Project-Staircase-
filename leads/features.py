@@ -20,6 +20,7 @@ import csv
 import json
 import re
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -95,7 +96,13 @@ def _record_text(record: Dict[str, Any]) -> str:
 
 
 def _passport_status(record: Dict[str, Any]) -> int:
-    """Score passport status from free text (Appendix D heuristic)."""
+    """Score passport status from free text (Appendix D heuristic).
+
+    NOTE: ``PASSPORT_VALID`` is the *default* -- it means "no negative keyword
+    found", not "a valid passport was observed". On the real corpus 808 of 861
+    labelled rows (94%) take this default, including all 61 Hot leads, so the
+    rubric's heaviest weight (0.30) sits on a near-constant feature.
+    """
     text = _record_text(record).lower()
     if "yet to renew passport" in text or "needs to renew passport" in text:
         return PASSPORT_EXPIRED_NOT_RENEWED
@@ -173,6 +180,8 @@ def _funding_clarity(record: Dict[str, Any]) -> int:
     # Some explicit yes/no phrasing we cannot classify confidently
     if "fund" in method or "finance" in method:
         return FUNDING_CLEAR
+    # Fallback: any other non-empty text (e.g. "wants to attend the expo first")
+    # is coded PARTIAL -- an unclassified remark, not evidence of partial funds.
     return FUNDING_PARTIAL
 
 
@@ -284,10 +293,25 @@ def summarize(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     def _frac(field: str, value: Any) -> float:
         return round(sum(1 for r in rows if r[field] == value) / total, 4) if total else 0.0
 
+    # Data-quality diagnostics: problems that used to be silent.
+    id_counts = Counter(r["crm_id"] for r in rows if r["crm_id"])
+    repeated = {k: v for k, v in id_counts.items() if v > 1}
+    notes_nonempty = sum(1 for rec in records
+                         if str(rec.get("assessment_notes", "") or "").strip())
+    feature_cols = [c for c in FEATURE_COLUMNS if c not in ("crm_id", "label")]
+    constant = [c for c in feature_cols
+                if rows and len({r[c] for r in rows}) == 1]
+
     return {
         "total_records": total,
         "labeled_records": len(labeled),
         "label_counts": label_counts,
+        "unique_crm_ids": len(id_counts),
+        "repeated_crm_ids": len(repeated),
+        "rows_in_repeated_crm_ids": sum(repeated.values()),
+        "assessment_notes_nonempty_frac": (
+            round(notes_nonempty / total, 4) if total else 0.0),
+        "constant_feature_columns": constant,
         "passport_valid_frac": _frac("passport_status", PASSPORT_VALID),
         "passport_none_frac": _frac("passport_status", PASSPORT_NONE),
         "funding_clear_frac": _frac("funding_clarity", FUNDING_CLEAR),
@@ -358,6 +382,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     summary = summarize(records)
     for k, v in summary.items():
         print(f"  {k}: {v}")
+    if summary["total_records"] and summary["assessment_notes_nonempty_frac"] == 0:
+        print("WARNING: assessment_notes is empty in every record -- "
+              "note_word_count / note completeness carry no signal.")
+    if summary["rows_in_repeated_crm_ids"]:
+        print("WARNING: %d rows belong to a CRM id that occurs more than once; "
+              "row-level splits leak same-lead siblings "
+              "(use leads.train_ml --group-by-lead)."
+              % summary["rows_in_repeated_crm_ids"])
     print("Saved:")
     print(f"  CSV: {csv_path}")
     print(f"  JSON: {json_path}")

@@ -168,3 +168,43 @@ def test_write_outputs(tmp_path):
     data = json.loads(json_path.read_text(encoding="utf-8"))
     assert data["metadata"]["rows"] == 2
     assert len(data["data"]) == 2
+
+# --------------------------------------------------------------------------- #
+# data-quality diagnostics (silent problems made loud)
+# --------------------------------------------------------------------------- #
+def test_summarize_reports_repeated_leads_empty_notes_and_constants():
+    from leads.features import summarize
+
+    recs = [
+        _record(crm_id="1", rating="Cold"),
+        _record(crm_id="1", rating="Cold"),          # same lead, second form
+        _record(crm_id="2", rating="Good"),
+        _record(crm_id="3", rating="Excellent"),
+    ]
+    s = summarize(recs)
+    assert s["unique_crm_ids"] == 3
+    assert s["repeated_crm_ids"] == 1
+    assert s["rows_in_repeated_crm_ids"] == 2
+    assert s["assessment_notes_nonempty_frac"] == 0.0
+    assert "note_word_count" in s["constant_feature_columns"]
+
+
+def test_summarize_sees_notes_when_they_exist():
+    from leads.features import summarize
+
+    s = summarize([_record(assessment_notes="strong candidate, funds ready"),
+                   _record(crm_id="2")])
+    assert s["assessment_notes_nonempty_frac"] == 0.5
+    assert "note_word_count" not in s["constant_feature_columns"]
+
+
+def test_features_cli_warns_about_empty_notes_and_repeated_leads(tmp_path, capsys):
+    from leads.features import main
+
+    src = tmp_path / "assessment_forms_cleaned_1.json"
+    src.write_text(json.dumps([_record(crm_id="1"), _record(crm_id="1")]),
+                   encoding="utf-8")
+    assert main(["--input", str(src), "--out", str(tmp_path / "o")]) == 0
+    out = capsys.readouterr().out
+    assert "assessment_notes is empty in every record" in out
+    assert "CRM id that occurs more than once" in out

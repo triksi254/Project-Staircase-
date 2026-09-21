@@ -27,7 +27,11 @@ Two generators:
     v2 is leakage-safe by default (``--bootstrap-pool train``): the label model
     is fit on, and synthesis bootstraps from, an 80/20 stratified *train* split
     of the labelled real rows only, so a real holdout drawn by the same split
-    is never seen by the generator.
+    is never seen by the generator. The split is driven by ``--seed`` (the same
+    seed drives split and generator in ``leads.eval_augmentation``); it used to
+    be pinned to seed 42 whatever ``--seed`` said, so the documented "reproduce"
+    command built a different pool than the evaluation. ``--group-split`` makes
+    the split lead-grouped (no CRM id straddles train and holdout).
 
 Usage:
     python -m leads.personas --n 1000 --seed 42 --out data/processed
@@ -411,7 +415,7 @@ def generate_session_v2(session_id, rng, label_model):
 
 
 def generate_sessions_v2(n=1000, seed=42, real_frame=None, label_model=None,
-                         priors=None, bootstrap_pool="train"):
+                         priors=None, bootstrap_pool="train", group_split=False):
     """Deterministic inverted-generator corpus.
 
     Parameters
@@ -433,6 +437,9 @@ def generate_sessions_v2(n=1000, seed=42, real_frame=None, label_model=None,
         by the same split is never seen by the generator. ``"all"`` restores the
         legacy behaviour (fit and bootstrap on every labelled row) and is
         retained only to quantify the leak.
+    group_split : bool
+        With ``bootstrap_pool="train"``, split by CRM id (``crm_id`` column of
+        ``real_frame``) so no lead straddles train and holdout.
     """
     if n <= 0:
         raise ValueError("n must be positive")
@@ -448,8 +455,14 @@ def generate_sessions_v2(n=1000, seed=42, real_frame=None, label_model=None,
         if "row_id" not in frame.columns:
             frame["row_id"] = np.arange(len(frame), dtype=int)
         if bootstrap_pool == "train":
-            # Seed 42 (train_ml.RANDOM_STATE) fixes the protocol split.
-            train_idx, _ = split_real_indices(frame)
+            # ``seed`` drives the protocol split, exactly as in
+            # leads.eval_augmentation (one seed -> split + generators).
+            groups = None
+            if group_split:
+                from leads.train_ml import lead_groups
+                groups = lead_groups(frame)
+            train_idx, _ = split_real_indices(
+                frame, random_state=seed, groups=groups)
             frame = frame.iloc[train_idx].reset_index(drop=True)
         label_model = CounsellorLabelModel(frame, random_state=seed)
     rng = random.Random(seed)
@@ -525,6 +538,9 @@ def main(argv=None):
              "P(counsellor_label | features) fitted on the real rows",
     )
     parser.add_argument(
+        "--group-split", action="store_true",
+        help="v2 only: lead-grouped train split (no CRM id straddles)")
+    parser.add_argument(
         "--bootstrap-pool", choices=["train", "all"], default="train",
         help="v2 only: 'train' (default) fits the label model and bootstraps "
              "profiles from the labelled train split only (leakage-safe); "
@@ -548,7 +564,7 @@ def main(argv=None):
                   file=sys.stderr)
         sessions, meta = generate_sessions_v2(
             n=args.n, seed=args.seed, priors=priors,
-            bootstrap_pool=args.bootstrap_pool)
+            bootstrap_pool=args.bootstrap_pool, group_split=args.group_split)
         csv_path, json_path = write_outputs(sessions, meta, args.out)
         print("=" * 70)
         print("PERSONA SESSION SIMULATION v2 (inverted: real label function)")

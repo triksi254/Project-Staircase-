@@ -296,3 +296,38 @@ def test_no_holdout_leakage():
     assert meta2["bootstrap_pool"]["n_rows"] == split["n_train"]
 
 
+
+
+# --------------------------------------------------------------------------- #
+# the protocol split follows --seed (it used to be pinned to 42)
+# --------------------------------------------------------------------------- #
+def test_v2_internal_split_follows_the_seed():
+    """``--seed 7`` must bootstrap from seed-7's train split, as the eval does."""
+    from leads.eval_augmentation import split_labeled_rows
+
+    frame = _real_frame(n_per_class=25)
+    sessions, _ = generate_sessions_v2(n=300, seed=7, real_frame=frame)
+    used = {s["source_row_id"] for s in sessions}
+    split7 = split_labeled_rows(frame, random_state=7)
+    split42 = split_labeled_rows(frame, random_state=42)
+    assert used <= set(split7["train_row_ids"])
+    assert used.isdisjoint(split7["holdout_row_ids"])
+    # premise: the seed-7 and seed-42 holdouts differ, so a pinned-42 pool would
+    # have leaked seed-7 holdout rows
+    assert set(split7["holdout_row_ids"]) != set(split42["holdout_row_ids"])
+
+
+def test_v2_group_split_keeps_leads_apart():
+    import pandas as pd
+    frame = _real_frame(n_per_class=25).copy()
+    frame["crm_id"] = [str(1000 + i // 2) for i in range(len(frame))]  # 2 forms / lead
+    sessions, meta = generate_sessions_v2(n=200, seed=3, real_frame=frame,
+                                          group_split=True)
+    labelled = pd.DataFrame({"crm_id": frame["crm_id"]}).reset_index(drop=True)
+    used_ids = {labelled.iloc[s["source_row_id"]]["crm_id"] for s in sessions}
+    assert used_ids                       # some lead was sampled
+    from leads.train_ml import lead_groups, split_real_indices
+    fr = frame.reset_index(drop=True)
+    _, hold = split_real_indices(fr, random_state=3, groups=lead_groups(fr))
+    hold_ids = {labelled.iloc[i]["crm_id"] for i in hold}
+    assert used_ids.isdisjoint(hold_ids)
