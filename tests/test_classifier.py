@@ -59,3 +59,36 @@ def test_cli_writes_the_cv_summary_artifact(tmp_path):
     assert len(d["folds"]) == 5
     assert 0.0 < d["mean_macro_f1"] <= 1.0
     assert "NOT a measurement on user queries" in d["note"]
+
+
+# --------------------------------------------------------------------------- #
+# diagnostics: the full class distribution (predict() itself is unchanged)
+# --------------------------------------------------------------------------- #
+def test_predict_distribution_is_a_sorted_probability_vector():
+    from chatbot.classifier import CATEGORIES, predict_distribution
+    dist = predict_distribution("How much is tuition at BCU for a postgraduate course?")
+    assert {c for c, _ in dist} == set(CATEGORIES) and len(dist) == 9
+    probs = [p for _, p in dist]
+    assert probs == sorted(probs, reverse=True)
+    assert abs(sum(probs) - 1.0) < 1e-6
+
+
+def test_predict_topk_is_the_head_of_the_distribution():
+    from chatbot.classifier import predict_distribution, predict_topk
+    q = "Is it safe to study in Birmingham as an international student?"
+    assert predict_topk(q, k=3) == predict_distribution(q)[:3]
+    assert len(predict_topk(q, k=1)) == 1
+
+
+def test_predict_is_the_argmax_of_the_distribution():
+    from chatbot.classifier import predict, predict_distribution
+    for q in ("Do I need IELTS?", "What scholarships are there?", "Where will I live?"):
+        assert predict(q) == predict_distribution(q)[0][0]
+
+
+def test_distribution_without_a_model_is_empty(monkeypatch):
+    import chatbot.classifier as C
+    monkeypatch.setattr(C, "load", lambda: (None, []))
+    assert C.predict_distribution("anything") == []
+    assert C.predict_topk("anything") == []
+    assert C.predict_distribution("   ") == []

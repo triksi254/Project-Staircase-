@@ -340,3 +340,17 @@ def test_rule_score_is_defined_by_the_breakdown():
                  ["Fees & Funding"], list(CATS)):
         ev = _session(cats).rubric_evidence()
         assert rule_score_from_evidence(ev) == live_rule_breakdown(ev)["score"]
+
+
+def test_rule_breakdown_logs_the_raw_score_before_normalisation(caplog):
+    """The raw sum (0.0900) and the divisor (0.1800) are visible at DEBUG; the
+    rule score is raw / mass with no clamp anywhere on the path."""
+    t = _session(["Application Process", "English Language"])
+    with caplog.at_level(logging.DEBUG, logger="chatbot.session_features"):
+        t.rule_score()
+    msgs = [r.getMessage() for r in caplog.records
+            if r.name == "chatbot.session_features"]
+    assert msgs, "live_rule_breakdown must log at DEBUG"
+    msg = msgs[-1]
+    assert "raw=0.0900" in msg and "mass=0.1800" in msg and "score=0.5000" in msg
+    assert "has_intake=+0.050/0.050" in msg and "english_test=+0.040/0.080" in msg

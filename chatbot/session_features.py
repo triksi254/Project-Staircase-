@@ -39,6 +39,7 @@ reported separately as the engagement feature ``session_word_count``).
 """
 from __future__ import annotations
 
+import logging
 import math
 from collections import Counter
 from datetime import datetime
@@ -46,6 +47,8 @@ from typing import Any, Dict, List, Optional
 
 from leads.hybrid import DEFAULT_ALPHA, hybrid_score
 from leads.rubric import score_row
+
+_LOG = logging.getLogger(__name__)
 
 #: Categories the live classifier/responder may emit. Anything outside this
 #: set is counted under "General Enquiries" for entropy purposes.
@@ -117,8 +120,13 @@ def live_rule_breakdown(evidence: Dict[str, Any]) -> Dict[str, Any]:
                           "detail": c.get("detail")})
             got += float(c["contribution"])
             mass += float(c["weight"])
-    return {"lines": lines, "raw": got, "mass": mass,
-            "score": float(got / mass) if mass else 0.0}
+    score = float(got / mass) if mass else 0.0
+    _LOG.debug(
+        "live_rule_breakdown: raw=%.4f mass=%.4f score=%.4f (score = raw / mass; "
+        "no clamp) components=%s", got, mass, score,
+        ", ".join("%s=%+.3f/%.3f" % (l["feature"], l["contribution"], l["weight"])
+                  for l in lines))
+    return {"lines": lines, "raw": got, "mass": mass, "score": score}
 
 
 def rule_score_from_evidence(evidence: Dict[str, Any]) -> float:

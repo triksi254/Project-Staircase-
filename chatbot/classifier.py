@@ -111,6 +111,33 @@ def predict(query: str, model=None) -> str:
     return label if label in CATEGORIES else FALLBACK
 
 
+def predict_distribution(query: str, model=None) -> List[Tuple[str, float]]:
+    """Diagnostics: ``(category, probability)`` for *every* class, best first.
+
+    ``predict`` is unchanged (it is the argmax of this). Returns ``[]`` for an
+    empty query or when no model is available. Note the probabilities are close
+    to uniform (1/9 = 0.111) on this corpus, so the margin between the top
+    classes is small; a "threshold" on them says little.
+    """
+    if not query or not query.strip():
+        return []
+    mdl = model if model is not None else load()[0]
+    if mdl is None:
+        return []
+    try:
+        proba = mdl.predict_proba([query])[0]
+        classes = list(mdl.classes_)
+    except (ValueError, AttributeError):
+        return []
+    return sorted(((str(c), float(p)) for c, p in zip(classes, proba)),
+                  key=lambda t: -t[1])
+
+
+def predict_topk(query: str, k: int = 3, model=None) -> List[Tuple[str, float]]:
+    """The ``k`` most probable categories (see :func:`predict_distribution`)."""
+    return predict_distribution(query, model)[:k]
+
+
 def cv_report(texts, labels, k=5):
     """Per-fold diagnostic: support, per-class F1, macro F1. No model change."""
     from collections import Counter

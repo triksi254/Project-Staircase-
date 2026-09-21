@@ -37,7 +37,6 @@ import functools
 import io
 import json
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -361,27 +360,12 @@ def _hybrid_from_proba(rule: float, ml_proba: Optional[List[float]],
     return float(hybrid_score(rule, ml_proba, alpha=alpha))
 
 
-#: Keyword groups for the multi-intent guard: >2 groups hit -> escalate
-#: instead of answering (compound queries need a counsellor, not top-1).
-_INTENT_GROUPS = (
-    ("passport",),
-    ("ielts", "english test", "english-test"),
-    ("kcse", "grade", "mean grade", "b+", "c+", "gpa"),
-    ("data science", "nursing", "business", "course", "degree",
-     "masters", "programme", "program", "subject"),
-    ("intake", "september", "january", "deadline", "when can i start",
-     "when do i apply"),
-    ("aston", "bcu", "usw", "rgu", "herts", "salford", "uclan",
-     "destination", "which university", "where should i study"),
-)
-
-#: Phrases that contain an intent keyword without expressing that intent.
-_NOT_INTENT = re.compile(r"\bof course\b")
-
-
-def _kw_in(query: str, keyword: str) -> bool:
-    """Whole-word / whole-phrase match (``grade`` must not match ``upgrade``)."""
-    return re.search(r"(?<!\w)" + re.escape(keyword) + r"(?!\w)", query) is not None
+# The multi-intent guard lives in ``chatbot.intent_guard`` so ``respond()`` can
+# report which groups matched; the old private names stay as aliases.
+from chatbot.intent_guard import INTENT_GROUPS as _INTENT_GROUPS  # noqa: E402
+from chatbot.intent_guard import NOT_INTENT as _NOT_INTENT  # noqa: E402
+from chatbot.intent_guard import is_multi_intent as _is_multi_intent  # noqa: E402
+from chatbot.intent_guard import kw_in as _kw_in  # noqa: E402,F401
 
 
 def _ensure_lead(st) -> None:
@@ -443,17 +427,6 @@ def _close_lead_and_start_new(st) -> None:
         "lead_id": st.session_state.lead_id,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
-
-
-def _is_multi_intent(query: str) -> bool:
-    """True when the query raises more than two distinct intents.
-
-    Matching is by whole word/phrase, and the stock phrase "of course" is
-    ignored, so ordinary sentences are not mistaken for compound queries.
-    """
-    q = _NOT_INTENT.sub(" ", query.lower())
-    hits = sum(any(_kw_in(q, k) for k in g) for g in _INTENT_GROUPS)
-    return hits > 2
 
 
 def _answer_query(query: str, tracker, retriever,

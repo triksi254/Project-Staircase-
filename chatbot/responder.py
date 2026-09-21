@@ -41,6 +41,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from chatbot.intent_guard import THRESHOLD as _INTENT_THRESHOLD
+from chatbot.intent_guard import matched_intent_groups
 from chatbot.retriever import FaqEntry, Retriever
 from leads.hybrid import (
     DEFAULT_ALPHA,
@@ -107,6 +109,35 @@ def escalation_reasons(*, force_abstain: bool, has_hits: bool, confidence: float
     return reasons or ["none"]
 
 
+def decision_path(*, force_abstain: bool, has_hits: bool, confidence: float,
+                  min_confidence: float) -> Tuple[str, str]:
+    """``("answer" | "abstain", reason)`` for the debug line. Pure.
+
+    When the multi-intent guard forced the abstention the reason also says whether
+    the confidence gate would have fired on its own, which is what distinguishes
+    "abstained because of the score" from "abstained despite a confident score".
+    """
+    below = (not has_hits) or confidence < min_confidence
+    if force_abstain:
+        return "abstain", (
+            "multi_intent_guard (top1 %g %s min_confidence %g; confidence gate "
+            "would %s have fired)" % (
+                confidence, "<" if below else ">=", min_confidence,
+                "ALSO" if below else "NOT"))
+    if not has_hits:
+        return "abstain", "no_retrieval_hits"
+    if confidence < min_confidence:
+        return "abstain", "low_confidence (top1 %g < min_confidence %g)" % (
+            confidence, min_confidence)
+    return "answer", "top1 %g >= min_confidence %g; no guard" % (
+        confidence, min_confidence)
+
+
+def _groups_repr(groups) -> str:
+    """``[g1:ielts, g3:masters, g5:rgu]`` (``[]`` when nothing matched)."""
+    return "[" + ", ".join("g%d:%s" % (i, "/".join(kws)) for i, kws in groups) + "]"
+
+
 def respond(
     query: str,
     retriever: Retriever,
@@ -135,17 +166,29 @@ def respond(
 
     abstained = bool(force_abstain) or (not hits) or (confidence < pol.min_confidence)
     escalate, priority = decide_escalation(label, abstained)
-    # ``top1_score`` is the exact value compared with ``min_confidence``;
-    # ``multi_intent_flag`` is ``force_abstain`` (how the dashboard's multi-intent
-    # guard signals it). Enable with logging.getLogger("chatbot.responder").
-    _LOG.debug(
-        "respond: query=%r top1_score=%r min_confidence=%r multi_intent_flag=%s "
-        "escalation_reason=%s",
-        query, confidence, pol.min_confidence, bool(force_abstain),
-        "+".join(escalation_reasons(
+    # One debug line per call (enable with logging.getLogger("chatbot.responder")):
+    #   top1_score            the exact value compared with min_confidence
+    #   multi_intent_flag     force_abstain as passed (the dashboard applies the guard)
+    #   multi_intent_detected / groups   what chatbot.intent_guard sees in the query,
+    #                         reported even when the caller did not enforce it
+    #   scope_check_invoked   always False: the institution scope check (b940388)
+    #                         was removed in a6832c6; nothing scopes by institution
+    #   decision / decision_reason   the final path and why
+    if _LOG.isEnabledFor(logging.DEBUG):
+        groups = matched_intent_groups(query)
+        decision, why = decision_path(
             force_abstain=bool(force_abstain), has_hits=bool(hits),
-            confidence=confidence, min_confidence=pol.min_confidence,
-            label=label)))
+            confidence=confidence, min_confidence=pol.min_confidence)
+        _LOG.debug(
+            "respond: query=%r top1_score=%r min_confidence=%r multi_intent_flag=%s "
+            "escalation_reason=%s multi_intent_detected=%s groups=%s "
+            "scope_check_invoked=False scope_result=n/a decision=%s decision_reason=%s",
+            query, confidence, pol.min_confidence, bool(force_abstain),
+            "+".join(escalation_reasons(
+                force_abstain=bool(force_abstain), has_hits=bool(hits),
+                confidence=confidence, min_confidence=pol.min_confidence,
+                label=label)),
+            len(groups) > _INTENT_THRESHOLD, _groups_repr(groups), decision, why)
     if abstained:
         answer = ABSTAIN_MESSAGE
         cited: Optional[str] = None

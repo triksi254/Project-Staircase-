@@ -27,9 +27,10 @@ class _Retriever:
         return [(_Entry(), self.score)] if self.has_hits else []
 
 
-def _call(caplog, score, *, force=False, rule=0.0, has_hits=True, gate=0.60):
+def _call(caplog, score, *, force=False, rule=0.0, has_hits=True, gate=0.60,
+          query="what IELTS at RGU?"):
     with caplog.at_level(logging.DEBUG, logger="chatbot.responder"):
-        out = respond("what IELTS at RGU?", _Retriever(score, has_hits),
+        out = respond(query, _Retriever(score, has_hits),
                       rule_score=rule, force_abstain=force,
                       policy=EscalationPolicy(min_confidence=gate, alpha=1.0))
     recs = [r for r in caplog.records
@@ -80,3 +81,60 @@ def test_escalation_reasons_helper_is_pure():
     assert escalation_reasons(force_abstain=True, has_hits=True, confidence=0.2,
                               min_confidence=0.6, label="Hot") == [
         "multi_intent_guard", "low_confidence", "hot_lead"]
+
+
+# --------------------------------------------------------------------------- #
+# richer debug line: matched groups, scope check, final decision path
+# --------------------------------------------------------------------------- #
+RGU = "What IELTS score do I need for a masters at RGU?"
+
+
+def test_debug_line_reports_multi_intent_detection_and_the_matched_groups(caplog):
+    _, msg = _call(caplog, 0.8051, force=True, query=RGU)
+    assert "multi_intent_detected=True" in msg
+    assert "groups=[g1:ielts, g3:masters, g5:rgu]" in msg
+    assert "multi_intent_flag=True" in msg
+
+
+def test_detection_is_reported_even_when_the_caller_did_not_enforce_it(caplog):
+    """The guard is applied by the dashboard (force_abstain); a direct respond()
+    call reports the detection but, without force_abstain, answers."""
+    out, msg = _call(caplog, 0.8051, force=False, query=RGU)
+    assert "multi_intent_detected=True" in msg and "multi_intent_flag=False" in msg
+    assert "decision=answer" in msg
+    assert out["abstained"] is False
+
+
+def test_debug_line_states_that_no_scope_check_exists(caplog):
+    """The institution scope check (b940388) was removed in a6832c6."""
+    _, msg = _call(caplog, 0.9)
+    assert "scope_check_invoked=False" in msg
+    assert "scope_result=n/a" in msg
+
+
+def test_decision_path_names_the_guard_and_says_the_gate_did_not_fire(caplog):
+    _, msg = _call(caplog, 0.8051, force=True, query=RGU)
+    assert "decision=abstain" in msg
+    assert "decision_reason=multi_intent_guard" in msg
+    assert "confidence gate would NOT have fired" in msg
+
+
+def test_decision_path_for_a_low_confidence_abstention(caplog):
+    _, msg = _call(caplog, 0.3524, query="is it safe to live there")
+    assert "decision=abstain" in msg
+    assert "decision_reason=low_confidence" in msg
+    assert "multi_intent_detected=False" in msg and "groups=[]" in msg
+
+
+def test_decision_path_for_an_answer_and_for_no_hits(caplog):
+    _, ans = _call(caplog, 0.95)
+    assert "decision=answer" in ans
+    assert "decision_reason=top1 0.95 >= min_confidence 0.6" in ans
+    caplog.clear()
+    _, none = _call(caplog, 0.0, has_hits=False)
+    assert "decision=abstain" in none and "decision_reason=no_retrieval_hits" in none
+
+
+def test_when_both_fire_the_reason_says_so(caplog):
+    _, msg = _call(caplog, 0.35, force=True, query=RGU)
+    assert "confidence gate would ALSO have fired" in msg

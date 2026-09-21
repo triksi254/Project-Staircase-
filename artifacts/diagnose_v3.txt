@@ -1,0 +1,122 @@
+================================================================================================
+1. ESCALATION - why did confident answers escalate?
+================================================================================================
+retriever=sbert gate=0.60. Each call replicates dashboard/app.py::_answer_query:
+  respond(query, retriever, rule_score=0.0, ml_score=None,
+          policy=EscalationPolicy(alpha=1.0, min_confidence=gate), top_k=3,
+          force_abstain=is_multi_intent(query))
+
+DEBUG chatbot.responder: respond: query='Do I need IELTS to study at Aston if I did KCSE English?' top1_score=0.8078 min_confidence=0.6 multi_intent_flag=True escalation_reason=multi_intent_guard multi_intent_detected=True groups=[g1:ielts, g2:kcse, g5:aston] scope_check_invoked=False scope_result=n/a decision=abstain decision_reason=multi_intent_guard (top1 0.8078 >= min_confidence 0.6; confidence gate would NOT have fired)
+  retrieval top-3:
+     0.8078 #49 [English Language] Does Aston accept KCSE English instead of IELTS?
+     0.7247 #33 [English Language] Do I need IELTS if I did KCSE English?
+     0.6632 #46 [English Language] Which English language tests does Aston University accept for a Master
+  confidence gate      : top1 0.8078 >= 0.60 -> did NOT fire
+  multi-intent guard   : g1:ielts + g2:kcse + g5:aston = 3 groups > 2 -> FIRED
+  institution scope    : not invoked (no such check exists at HEAD)
+  final                : abstain -> escalate=True priority=normal
+
+DEBUG chatbot.responder: respond: query='What IELTS score do I need for a masters at RGU?' top1_score=0.8051 min_confidence=0.6 multi_intent_flag=True escalation_reason=multi_intent_guard multi_intent_detected=True groups=[g1:ielts, g3:masters, g5:rgu] scope_check_invoked=False scope_result=n/a decision=abstain decision_reason=multi_intent_guard (top1 0.8051 >= min_confidence 0.6; confidence gate would NOT have fired)
+  retrieval top-3:
+     0.8051 #40 [English Language] What IELTS score do undergraduate courses at RGU need?
+     0.7742 #38 [English Language] What IELTS score do I need for postgraduate study at RGU?
+     0.6552 #34 [English Language] What IELTS score do most BCU courses require?
+  confidence gate      : top1 0.8051 >= 0.60 -> did NOT fire
+  multi-intent guard   : g1:ielts + g3:masters + g5:rgu = 3 groups > 2 -> FIRED
+  institution scope    : not invoked (no such check exists at HEAD)
+  final                : abstain -> escalate=True priority=normal
+
+Scope-check history (git): added in b940388 (2026-09-19); removed in a6832c6
+(2026-09-20, the 'empty lead state' commit). At HEAD nothing filters or gates by
+institution. Institution names still matter through intent group g5 of the
+multi-intent guard, where an institution counts as one of the >2 'intents'.
+
+================================================================================================
+2. RULE SCORE CEILING - raw score before normalisation
+================================================================================================
+live_rule_breakdown() computes: score = raw / mass  (no clamp anywhere on the path).
+
+LEAD-20260921-0001 categories=['Scholarships', 'English Language', 'Application Process']
+   DEBUG chatbot.session_features: live_rule_breakdown: raw=0.0900 mass=0.1800 score=0.5000 (score = raw / mass; no clamp) components=has_course=+0.000/0.050, has_intake=+0.050/0.050, english_test=+0.040/0.080
+   rule_score = 0.5000
+LEAD-20260921-0002 categories=['Accommodation', 'English Language', 'Application Process']
+   DEBUG chatbot.session_features: live_rule_breakdown: raw=0.0900 mass=0.1800 score=0.5000 (score = raw / mass; no clamp) components=has_course=+0.000/0.050, has_intake=+0.050/0.050, english_test=+0.040/0.080
+   rule_score = 0.5000
+LEAD-20260921-0003 categories=['English Language', 'Scholarships', 'Visa & Immigration']
+   DEBUG chatbot.session_features: live_rule_breakdown: raw=0.0400 mass=0.1800 score=0.2222 (score = raw / mass; no clamp) components=has_course=+0.000/0.050, has_intake=+0.000/0.050, english_test=+0.040/0.080
+   rule_score = 0.2222
+
+Every reachable live rule score (subsets of the 3 observable topics):
+   topics seen (-> component)                               raw    mass    score
+   (none)                                                0.0000  0.1800   0.0000
+   Entry Requirements(has_course)                        0.0500  0.1800   0.2778
+   Application Process(has_intake)                       0.0500  0.1800   0.2778
+   English Language(english_test)                        0.0400  0.1800   0.2222
+   Entry Requirements(has_course), Application Process(  0.1000  0.1800   0.5556
+   Entry Requirements(has_course), English Language(eng  0.0900  0.1800   0.5000
+   Application Process(has_intake), English Language(en  0.0900  0.1800   0.5000
+   Entry Requirements(has_course), Application Process(  0.1400  0.1800   0.7778
+
+distinct values: 6  [0.0, 0.2222, 0.2778, 0.5, 0.5556, 0.7778]
+ceiling: raw 0.1400 / mass 0.1800 = 0.7778 (never 1.0)
+  why not 1.0: english_test earns 0.040 of its 0.080 weight (band unparsed);
+  with a parsed band >= 6.0 it would earn 0.080, but a chat never supplies a band.
+  half credit set at        leads/rubric.py:115
+  band fixed at 0.0 by      chatbot/session_features.py:96
+why 0.5000 twice: Application Process+English and Entry Requirements+English both
+  have raw 0.09 (0.05 + 0.04) over mass 0.18. The score is a 6-value lattice, so
+  different chats collide. course+intake without English gives 0.5556.
+clamps on the path: leads.hybrid._clip01 in hybrid_score(); it does not bind
+  (rule <= 0.7778, hybrid in [0,1]). Nothing else clamps.
+
+================================================================================================
+3. CATEGORY DRIFT - where did each category come from?
+================================================================================================
+respond() takes a turn's category from the RETRIEVED FAQ when it answers, and from
+the CLASSIFIER only when it abstains (chatbot/responder.py).
+
+[A] How much is tuition at BCU for a postgraduate course?
+    expected category      : Fees & Funding
+    assigned in session    : Scholarships
+    respond() path         : answer (top1 0.7412, gate 0.60)
+    category source: retrieved FAQ -> #31 [Scholarships] How much is the postgraduate scholarship at BCU and who can 
+                     (the classifier was NOT consulted for this turn)
+    retrieval top-3        : 0.7412 [Scholarships] | 0.6550 [Fees & Funding] | 0.6544 [Scholarships]
+    classifier distribution (full, best first):
+       Fees & Funding 0.191 | Scholarships 0.127 | Entry Requirements 0.111 | Program Details 0.109 | Accommodation 0.106 | Application Process 0.103 | English Language 0.100 | General Enquiries 0.084 | Visa & Immigration 0.069
+    classifier rank of expected: 1 of 9  (top-3: yes, top-1: yes)
+    verdict: NOT classifier drift - the category is the retrieved FAQ's.
+             expected category is at retrieval rank 2 (gap to top-1 0.0862):
+             a retrieval-ranking issue, not a training-data gap.
+             (had the classifier been used it would say Fees & Funding; expected is rank 1)
+
+[B] Is it safe to study in Birmingham as an international student?
+    expected category      : General Enquiries
+    assigned in session    : Application Process
+    respond() path         : abstain (top1 0.5044, gate 0.60)
+    category source: classifier fallback -> Application Process
+    retrieval top-3        : 0.5044 [Visa & Immigration] | 0.4966 [Fees & Funding] | 0.4659 [Visa & Immigration]
+    classifier distribution (full, best first):
+       Application Process 0.146 | Program Details 0.130 | Visa & Immigration 0.126 | Accommodation 0.116 | Entry Requirements 0.113 | Scholarships 0.102 | Fees & Funding 0.101 | English Language 0.093 | General Enquiries 0.073
+    classifier rank of expected: 9 of 9  (top-3: NO, top-1: no)
+    verdict: expected is ABSENT from the classifier top-3 (rank 9 of 9) ->
+             training-data coverage issue (5 training docs for 'General Enquiries').
+
+[C] Can I transfer from a Kenyan university to a UK university mid-degree?
+    expected category      : Application Process
+    assigned in session    : Visa & Immigration
+    respond() path         : answer (top1 0.6199, gate 0.60)
+    category source: retrieved FAQ -> #95 [Visa & Immigration] Does a Kenyan student need a visa to study at USW in the UK?
+                     (the classifier was NOT consulted for this turn)
+    retrieval top-3        : 0.6199 [Visa & Immigration] | 0.5982 [Entry Requirements] | 0.5880 [Entry Requirements]
+    classifier distribution (full, best first):
+       Entry Requirements 0.130 | Program Details 0.120 | Scholarships 0.119 | Accommodation 0.116 | Application Process 0.115 | Fees & Funding 0.105 | English Language 0.100 | General Enquiries 0.098 | Visa & Immigration 0.097
+    classifier rank of expected: 5 of 9  (top-3: NO, top-1: no)
+    verdict: NOT classifier drift - the category is the retrieved FAQ's.
+             expected category is absent from the retrieval top-3:
+             corpus coverage / gate issue, not a classifier issue.
+             (had the classifier been used it would say Entry Requirements; expected is rank 5)
+
+Classifier flatness: top-1 probability 0.191/0.146/0.130; margin top1-top2 0.064/0.017/0.010 (uniform over 9 = 0.111).
+Training docs per category: Visa & Immigration=5, General Enquiries=5, Program Details=11, Scholarships=11, Application Process=11, Accommodation=12, Fees & Funding=14, English Language=14, Entry Requirements=15
+
