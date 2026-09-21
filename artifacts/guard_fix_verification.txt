@@ -1,0 +1,146 @@
+guard_fix_verification - behaviour of 8 test queries after guard_institution_fix
+CAPTURE ONLY: no fixes, and no judgement of whether an outcome is right.
+Path: dashboard/app.py::_answer_query, fresh tracker per query (a first chat turn).
+Reproduce: python scripts/guard_fix_verification.py
+
+retrieval_backend=sbert  min_confidence=0.60
+guard: multi-intent when MORE than 2 of these topical groups match (an institution name is not a group):
+  g0  passport
+  g1  ielts, english test, english-test
+  g2  kcse, grade, mean grade, b+, c+, gpa
+  g3  data science, nursing, business, course, degree, masters, programme, program, subject
+  g4  intake, september, january, deadline, when can i start, when do i apply
+
+SUMMARY
+#  top1    gate  intent_groups                             guard      decision  faq  escalate/priority
+-  ------  ----  ----------------------------------------  ---------  --------  ---  -----------------
+1  0.8078  0.60  [g1:ielts, g2:kcse]                       no 2<=2    answer    #49  False/none
+2  0.6430  0.60  []                                        no 0<=2    answer    #2   False/none
+3  0.5204  0.60  [g1:ielts]                                no 1<=2    abstain   -    True/normal
+4  0.5879  0.60  []                                        no 0<=2    abstain   -    True/normal
+5  0.6854  0.60  [g0:passport, g3:masters]                 no 2<=2    answer    #27  False/none
+6  0.5314  0.60  [g0:passport, g1:ielts, g3:data science]  FIRED 3>2  abstain   -    True/normal
+7  0.8266  0.60  []                                        no 0<=2    answer    #82  False/none
+8  0.8051  0.60  [g1:ielts, g3:masters]                    no 2<=2    answer    #40  False/none
+
+DETAIL
+
+[1] Do I need IELTS to study at Aston if I did KCSE English?
+    top1_score        : 0.8078
+    min_confidence    : 0.6
+    intent_groups     : [g1:ielts, g2:kcse]  (2 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : answer  (reason: top1 0.8078 >= min_confidence 0.6; no guard)
+    escalate/priority : False / none
+    retrieval_backend : sbert
+    cited_faq         : #49 [English Language | Aston] Does Aston accept KCSE English instead of IELTS?
+    retrieval top-3   :
+      1. 0.8078 #49 [English Language | Aston] Does Aston accept KCSE English instead of IELTS?
+      2. 0.7247 #33 [English Language | BCU] Do I need IELTS if I did KCSE English?
+      3. 0.6632 #46 [English Language | Aston] Which English language tests does Aston University accept for a Masters?
+    log               : respond: query='Do I need IELTS to study at Aston if I did KCSE English?' top1_score=0.8078 min_confidence=0.6 multi_intent_flag=False escalation_reason=none multi_intent_detected=False groups=[g1:ielts, g2:kcse] scope_check_invoked=False scope_result=n/a decision=answer decision_reason=top1 0.8078 >= min_confidence 0.6; no guard
+
+[2] What are the entry requirements for University of Birmingham?
+    top1_score        : 0.643
+    min_confidence    : 0.6
+    intent_groups     : []  (0 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : answer  (reason: top1 0.643 >= min_confidence 0.6; no guard)
+    escalate/priority : False / none
+    retrieval_backend : sbert
+    cited_faq         : #2 [Entry Requirements | General] What are the entry requirements?
+    retrieval top-3   :
+      1. 0.6430 #2 [Entry Requirements | General] What are the entry requirements?
+      2. 0.6269 #30 [Entry Requirements | Aston] What study background do I need for undergraduate entry at Aston?
+      3. 0.5329 #25 [English Language | Aston] What KCSE English grade do I need for Aston University?
+    log               : respond: query='What are the entry requirements for University of Birmingham?' top1_score=0.643 min_confidence=0.6 multi_intent_flag=False escalation_reason=none multi_intent_detected=False groups=[] scope_check_invoked=False scope_result=n/a decision=answer decision_reason=top1 0.643 >= min_confidence 0.6; no guard
+
+[3] I need to know about IELTS, scholarships, and accommodation
+    top1_score        : 0.5204
+    min_confidence    : 0.6
+    intent_groups     : [g1:ielts]  (1 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : abstain  (reason: low_confidence (top1 0.5204 < min_confidence 0.6))
+    escalate/priority : True / normal
+    retrieval_backend : sbert
+    cited_faq         : none (abstained)
+    retrieval top-3   :
+      1. 0.5204 #14 [English Language | General] What English language tests are accepted and what scores do I need?
+      2. 0.4870 #38 [English Language | RGU] What IELTS score do I need for postgraduate study at RGU?
+      3. 0.4858 #46 [English Language | Aston] Which English language tests does Aston University accept for a Masters?
+    log               : respond: query='I need to know about IELTS, scholarships, and accommodation' top1_score=0.5204 min_confidence=0.6 multi_intent_flag=False escalation_reason=low_confidence multi_intent_detected=False groups=[g1:ielts] scope_check_invoked=False scope_result=n/a decision=abstain decision_reason=low_confidence (top1 0.5204 < min_confidence 0.6)
+
+[4] Which university should I study at in the UK?
+    top1_score        : 0.5879
+    min_confidence    : 0.6
+    intent_groups     : []  (0 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : abstain  (reason: low_confidence (top1 0.5879 < min_confidence 0.6))
+    escalate/priority : True / normal
+    retrieval_backend : sbert
+    cited_faq         : none (abstained)
+    retrieval top-3   :
+      1. 0.5879 #16 [Visa & Immigration | General] Do international students need a student visa to study in the UK?
+      2. 0.5607 #1 [Fees & Funding | General] How much are the tuition fees?
+      3. 0.5519 #30 [Entry Requirements | Aston] What study background do I need for undergraduate entry at Aston?
+    log               : respond: query='Which university should I study at in the UK?' top1_score=0.5879 min_confidence=0.6 multi_intent_flag=False escalation_reason=low_confidence multi_intent_detected=False groups=[] scope_check_invoked=False scope_result=n/a decision=abstain decision_reason=low_confidence (top1 0.5879 < min_confidence 0.6)
+
+[5] I have a Kenyan passport. What do I need for a masters in the UK?
+    top1_score        : 0.6854
+    min_confidence    : 0.6
+    intent_groups     : [g0:passport, g3:masters]  (2 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : answer  (reason: top1 0.6854 >= min_confidence 0.6; no guard)
+    escalate/priority : False / none
+    retrieval_backend : sbert
+    cited_faq         : #27 [Entry Requirements | Aston] What do I need to get onto a Masters at Aston from Kenya?
+    retrieval top-3   :
+      1. 0.6854 #27 [Entry Requirements | Aston] What do I need to get onto a Masters at Aston from Kenya?
+      2. 0.6638 #43 [Entry Requirements | UCLan] What do I need for a Masters at UCLan from Kenya?
+      3. 0.6029 #95 [Visa & Immigration | USW] Does a Kenyan student need a visa to study at USW in the UK?
+    log               : respond: query='I have a Kenyan passport. What do I need for a masters in the UK?' top1_score=0.6854 min_confidence=0.6 multi_intent_flag=False escalation_reason=none multi_intent_detected=False groups=[g0:passport, g3:masters] scope_check_invoked=False scope_result=n/a decision=answer decision_reason=top1 0.6854 >= min_confidence 0.6; no guard
+
+[6] I have a Kenyan passport, IELTS 6.5, and want to study Data Science
+    top1_score        : 0.5314
+    min_confidence    : 0.6
+    intent_groups     : [g0:passport, g1:ielts, g3:data science]  (3 matched; the guard fires above 2)
+    guard_verdict     : FIRED
+    final_decision    : abstain  (reason: multi_intent_guard (top1 0.5314 < min_confidence 0.6; confidence gate would ALSO have fired))
+    escalate/priority : True / normal
+    retrieval_backend : sbert
+    cited_faq         : none (abstained)
+    retrieval top-3   :
+      1. 0.5314 #33 [English Language | BCU] Do I need IELTS if I did KCSE English?
+      2. 0.5073 #64 [Application Process | BCU] How do I apply to BCU from Kenya?
+      3. 0.5031 #78 [General Enquiries | Salford] Who can I contact about studying at Salford from Kenya?
+    log               : respond: query='I have a Kenyan passport, IELTS 6.5, and want to study Data Science' top1_score=0.5314 min_confidence=0.6 multi_intent_flag=True escalation_reason=multi_intent_guard+low_confidence multi_intent_detected=True groups=[g0:passport, g1:ielts, g3:data science] scope_check_invoked=False scope_result=n/a decision=abstain decision_reason=multi_intent_guard (top1 0.5314 < min_confidence 0.6; confidence gate would ALSO have fired)
+
+[7] How much does accommodation cost at Aston University?
+    top1_score        : 0.8266
+    min_confidence    : 0.6
+    intent_groups     : []  (0 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : answer  (reason: top1 0.8266 >= min_confidence 0.6; no guard)
+    escalate/priority : False / none
+    retrieval_backend : sbert
+    cited_faq         : #82 [Accommodation | Aston] How much is Aston University accommodation per week?
+    retrieval top-3   :
+      1. 0.8266 #82 [Accommodation | Aston] How much is Aston University accommodation per week?
+      2. 0.7413 #59 [Accommodation | Aston] Where can I find accommodation information for Aston students?
+      3. 0.7034 #83 [Accommodation | Aston] Is there an upfront payment for Aston accommodation?
+    log               : respond: query='How much does accommodation cost at Aston University?' top1_score=0.8266 min_confidence=0.6 multi_intent_flag=False escalation_reason=none multi_intent_detected=False groups=[] scope_check_invoked=False scope_result=n/a decision=answer decision_reason=top1 0.8266 >= min_confidence 0.6; no guard
+
+[8] What IELTS score do I need for a masters at RGU?
+    top1_score        : 0.8051
+    min_confidence    : 0.6
+    intent_groups     : [g1:ielts, g3:masters]  (2 matched; the guard fires above 2)
+    guard_verdict     : not fired
+    final_decision    : answer  (reason: top1 0.8051 >= min_confidence 0.6; no guard)
+    escalate/priority : False / none
+    retrieval_backend : sbert
+    cited_faq         : #40 [English Language | RGU] What IELTS score do undergraduate courses at RGU need?
+    retrieval top-3   :
+      1. 0.8051 #40 [English Language | RGU] What IELTS score do undergraduate courses at RGU need?
+      2. 0.7742 #38 [English Language | RGU] What IELTS score do I need for postgraduate study at RGU?
+      3. 0.6552 #34 [English Language | BCU] What IELTS score do most BCU courses require?
+    log               : respond: query='What IELTS score do I need for a masters at RGU?' top1_score=0.8051 min_confidence=0.6 multi_intent_flag=False escalation_reason=none multi_intent_detected=False groups=[g1:ielts, g3:masters] scope_check_invoked=False scope_result=n/a decision=answer decision_reason=top1 0.8051 >= min_confidence 0.6; no guard
