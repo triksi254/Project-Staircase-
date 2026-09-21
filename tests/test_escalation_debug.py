@@ -87,19 +87,30 @@ def test_escalation_reasons_helper_is_pure():
 # richer debug line: matched groups, scope check, final decision path
 # --------------------------------------------------------------------------- #
 RGU = "What IELTS score do I need for a masters at RGU?"
+COMPOUND = ("I have a Kenyan passport, IELTS 6.5, and want to study MSc Data "
+            "Science at Aston")
 
 
 def test_debug_line_reports_multi_intent_detection_and_the_matched_groups(caplog):
-    _, msg = _call(caplog, 0.8051, force=True, query=RGU)
+    _, msg = _call(caplog, 0.8051, force=True, query=COMPOUND)
     assert "multi_intent_detected=True" in msg
-    assert "groups=[g1:ielts, g3:masters, g5:rgu]" in msg
+    assert "groups=[g0:passport, g1:ielts, g3:data science]" in msg
     assert "multi_intent_flag=True" in msg
+
+
+def test_a_single_question_naming_an_institution_is_not_flagged(caplog):
+    """The reported case: an institution is a scope qualifier, not a third intent."""
+    out, msg = _call(caplog, 0.8051, force=False, query=RGU)
+    assert "multi_intent_detected=False" in msg
+    assert "groups=[g1:ielts, g3:masters]" in msg
+    assert "decision=answer" in msg
+    assert out["abstained"] is False
 
 
 def test_detection_is_reported_even_when_the_caller_did_not_enforce_it(caplog):
     """The guard is applied by the dashboard (force_abstain); a direct respond()
     call reports the detection but, without force_abstain, answers."""
-    out, msg = _call(caplog, 0.8051, force=False, query=RGU)
+    out, msg = _call(caplog, 0.8051, force=False, query=COMPOUND)
     assert "multi_intent_detected=True" in msg and "multi_intent_flag=False" in msg
     assert "decision=answer" in msg
     assert out["abstained"] is False
@@ -113,7 +124,7 @@ def test_debug_line_states_that_no_scope_check_exists(caplog):
 
 
 def test_decision_path_names_the_guard_and_says_the_gate_did_not_fire(caplog):
-    _, msg = _call(caplog, 0.8051, force=True, query=RGU)
+    _, msg = _call(caplog, 0.8051, force=True, query=COMPOUND)
     assert "decision=abstain" in msg
     assert "decision_reason=multi_intent_guard" in msg
     assert "confidence gate would NOT have fired" in msg
@@ -136,5 +147,5 @@ def test_decision_path_for_an_answer_and_for_no_hits(caplog):
 
 
 def test_when_both_fire_the_reason_says_so(caplog):
-    _, msg = _call(caplog, 0.35, force=True, query=RGU)
+    _, msg = _call(caplog, 0.35, force=True, query=COMPOUND)
     assert "confidence gate would ALSO have fired" in msg

@@ -1,17 +1,16 @@
 """Multi-intent guard: is a query really several questions at once?
 
-Extracted from ``dashboard/app.py`` *unchanged in behaviour* so that
-``chatbot.responder.respond`` can report **which** keyword groups matched in its
-debug line. The guard still does not run inside ``respond``: the dashboard calls
-:func:`is_multi_intent` and passes ``force_abstain=True``.
+Lives here, not in ``dashboard/app.py``, so that ``chatbot.responder.respond``
+can report **which** keyword groups matched in its debug line. The guard still
+does not run inside ``respond``: the dashboard calls :func:`is_multi_intent` and
+passes ``force_abstain=True``.
 
-How it decides: the query is matched against six keyword groups (passport,
-English test, KCSE/grades, programme, intake dates, institution/destination). A
-query that touches **more than** ``THRESHOLD`` (2) groups is treated as compound
-and abstains + escalates, whatever its retrieval confidence. Consequence worth
-knowing: an institution name is itself one of the groups, so a single question
-that names a document, a level and an institution ("What IELTS score do I need
-for a masters at RGU?") counts as three intents.
+How it decides: the query is matched against five topical keyword groups
+(passport, English test, KCSE/grades, programme, intake dates). A query that
+touches **more than** ``THRESHOLD`` (2) groups is treated as compound and
+abstains + escalates, whatever its retrieval confidence. An institution name is
+deliberately *not* a group: it scopes a question ("... at RGU"), it does not add
+one, so naming an institution never changes the verdict.
 """
 from __future__ import annotations
 
@@ -19,7 +18,7 @@ import re
 from typing import List, Tuple
 
 #: Keyword groups; a query "hits" a group when any keyword occurs as a whole
-#: word/phrase. The index of a group is its identity in debug output (g0..g5).
+#: word/phrase. The index of a group is its identity in debug output (g0..g4).
 INTENT_GROUPS = (
     ("passport",),
     ("ielts", "english test", "english-test"),
@@ -28,8 +27,6 @@ INTENT_GROUPS = (
      "masters", "programme", "program", "subject"),
     ("intake", "september", "january", "deadline", "when can i start",
      "when do i apply"),
-    ("aston", "bcu", "usw", "rgu", "herts", "salford", "uclan",
-     "destination", "which university", "where should i study"),
 )
 
 #: A query hitting more than this many groups is treated as multi-intent.

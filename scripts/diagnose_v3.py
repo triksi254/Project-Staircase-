@@ -169,8 +169,9 @@ def part1(emit, retriever, gate):
         emit("")
     emit("Scope-check history (git): added in b940388 (2026-09-19); removed in a6832c6")
     emit("(2026-09-20, the 'empty lead state' commit). At HEAD nothing filters or gates by")
-    emit("institution. Institution names still matter through intent group g5 of the")
-    emit("multi-intent guard, where an institution counts as one of the >2 'intents'.")
+    emit("institution. Institution names used to count as intent group g5 of the")
+    emit("multi-intent guard, which is what escalated both queries when this was first")
+    emit("diagnosed; an institution is now a scope qualifier and no longer counts.")
     emit("")
 
 

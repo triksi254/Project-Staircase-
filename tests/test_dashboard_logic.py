@@ -68,6 +68,44 @@ def test_single_intent_query_is_not_multi_intent():
     assert app._is_multi_intent("Do I need IELTS?") is False
 
 
+def _sbert_stub(score):
+    r = _Retriever(score=score)
+    r.backend = "sbert"                     # gate 0.60, as in the reported session
+    return r
+
+
+@pytest.mark.parametrize("q", [
+    "Do I need IELTS to study at Aston if I did KCSE English?",
+    "What IELTS score do I need for a masters at RGU?",
+])
+def test_a_single_question_naming_an_institution_is_answered(q):
+    """An institution is a scope qualifier, not an intent. These escalated at a
+    displayed confidence of 0.81 against a 0.60 gate because it counted as one."""
+    assert app._is_multi_intent(q) is False
+    r = _sbert_stub(0.81)
+    out = app._answer_query(q, _tracker_with(), r)
+    assert r.queries == [q]
+    assert out["cited_question"] is not None
+    assert out["escalate"] is False
+
+
+def test_passport_ielts_and_programme_together_still_escalate():
+    q = ("I have a Kenyan passport, IELTS 6.5, and want to study MSc Data "
+         "Science at Aston")
+    assert app._is_multi_intent(q) is True
+    out = app._answer_query(q, _tracker_with(), _sbert_stub(0.95))
+    assert out["cited_question"] is None
+    assert out["escalate"] is True
+
+
+def test_a_topicless_low_confidence_question_still_abstains():
+    q = "Is it safe to study in Birmingham?"
+    assert app._is_multi_intent(q) is False
+    out = app._answer_query(q, _tracker_with(), _sbert_stub(0.35))
+    assert out["cited_question"] is None
+    assert out["escalate"] is True
+
+
 def test_multi_intent_abstains_on_the_real_query_not_a_nonsense_string():
     q = ("I have a passport, IELTS 6.5 and a KCSE C+, and want data science "
          "at Aston in September")

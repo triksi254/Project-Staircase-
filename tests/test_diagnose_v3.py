@@ -46,14 +46,19 @@ def test_the_ceiling_is_the_unparsed_english_band():
 
 
 def test_report_runs_and_states_the_three_findings(tmp_path):
+    """artifacts/diagnose_v3.txt (tagged) is the pre-fix snapshot, where the guard
+    fired on both IELTS queries. An institution no longer counts as an intent,
+    so the live report shows both queries answering."""
     out = tmp_path / "diagnose_v3.txt"
     assert _load().main(["--out", str(out)]) == 0
     text = out.read_text(encoding="utf-8")
     # 1. escalation
     assert "scope_check_invoked=False" in text
-    assert text.count("decision_reason=multi_intent_guard") == 2
-    assert "groups=[g1:ielts, g2:kcse, g5:aston]" in text
-    assert "groups=[g1:ielts, g3:masters, g5:rgu]" in text
+    assert text.count("respond: query=") == 2
+    assert "decision_reason=multi_intent_guard" not in text
+    assert "groups=[g1:ielts, g2:kcse]" in text
+    assert "groups=[g1:ielts, g3:masters]" in text
+    assert text.count("decision=answer") == 2
     # 2. rule-score ceiling
     assert "raw=0.0900" in text and "0.7778" in text
     # 3. classifier: category source differs per query

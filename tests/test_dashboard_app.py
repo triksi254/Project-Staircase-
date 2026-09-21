@@ -98,6 +98,22 @@ def test_multi_intent_query_abstains_and_escalates_on_the_real_text():
     assert "flagged your question for a counsellor" in turn["assistant_text"]
 
 
+@pytest.mark.parametrize("q", [
+    "Do I need IELTS to study at Aston if I did KCSE English?",
+    "What IELTS score do I need for a masters at RGU?",
+])
+def test_a_single_question_naming_an_institution_is_answered_not_escalated(q):
+    """Reported session: both escalated at a displayed confidence of 0.81 (gate
+    0.60) because the institution counted as a third intent."""
+    at = _start()
+    at.chat_input[0].set_value(q).run()
+    assert not at.exception, [e.value for e in at.exception]
+    turn = at.session_state["turns_log"][0]
+    assert turn["user_msg"] == q
+    assert turn["escalate"] is False
+    assert "flagged your question for a counsellor" not in turn["assistant_text"]
+
+
 def test_close_lead_archives_the_transcript_with_decisions():
     at = _start()
     at.chat_input[0].set_value("Do I need IELTS to study in the UK?").run()
