@@ -45,3 +45,17 @@ def test_cv_macro_f1_reported():
     assert 0.0 <= out["mean_macro_f1"] <= 1.0
     # Thin-data expectation: report actual, gate low to avoid brittle CI.
     assert out["mean_macro_f1"] > 0.50
+
+
+def test_cli_writes_the_cv_summary_artifact(tmp_path):
+    import json
+
+    from chatbot.classifier import main
+
+    out = tmp_path / "cv.json"
+    assert main(["--out", str(out)]) == 0
+    d = json.loads(out.read_text(encoding="utf-8"))
+    assert d["k"] == 5 and d["n_documents"] == 98 and d["n_categories"] == 9
+    assert len(d["folds"]) == 5
+    assert 0.0 < d["mean_macro_f1"] <= 1.0
+    assert "NOT a measurement on user queries" in d["note"]

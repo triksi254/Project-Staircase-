@@ -1,0 +1,145 @@
+{
+  "k": 5,
+  "n_documents": 98,
+  "n_categories": 9,
+  "mean_macro_f1": 0.8161904761904761,
+  "std_macro_f1": 0.0864171003444133,
+  "folds": [
+    {
+      "fold": 0,
+      "n_val": 20,
+      "support": {
+        "Accommodation": 3,
+        "Application Process": 2,
+        "English Language": 3,
+        "Entry Requirements": 3,
+        "Fees & Funding": 2,
+        "General Enquiries": 1,
+        "Program Details": 3,
+        "Scholarships": 2,
+        "Visa & Immigration": 1
+      },
+      "per_class_f1": {
+        "Accommodation": 0.8,
+        "Application Process": 0.6666666666666666,
+        "English Language": 1.0,
+        "Entry Requirements": 0.75,
+        "Fees & Funding": 1.0,
+        "General Enquiries": 1.0,
+        "Program Details": 0.5,
+        "Scholarships": 0.8,
+        "Visa & Immigration": 0.6666666666666666
+      },
+      "macro_f1": 0.7981481481481482
+    },
+    {
+      "fold": 1,
+      "n_val": 20,
+      "support": {
+        "Accommodation": 3,
+        "Application Process": 2,
+        "English Language": 3,
+        "Entry Requirements": 3,
+        "Fees & Funding": 3,
+        "General Enquiries": 1,
+        "Program Details": 2,
+        "Scholarships": 2,
+        "Visa & Immigration": 1
+      },
+      "per_class_f1": {
+        "Accommodation": 1.0,
+        "Application Process": 0.6666666666666666,
+        "English Language": 0.8571428571428571,
+        "Entry Requirements": 1.0,
+        "Fees & Funding": 1.0,
+        "General Enquiries": 1.0,
+        "Program Details": 1.0,
+        "Scholarships": 1.0,
+        "Visa & Immigration": 1.0
+      },
+      "macro_f1": 0.9470899470899471
+    },
+    {
+      "fold": 2,
+      "n_val": 20,
+      "support": {
+        "Accommodation": 2,
+        "Application Process": 3,
+        "English Language": 2,
+        "Entry Requirements": 3,
+        "Fees & Funding": 3,
+        "General Enquiries": 1,
+        "Program Details": 2,
+        "Scholarships": 3,
+        "Visa & Immigration": 1
+      },
+      "per_class_f1": {
+        "Accommodation": 0.8,
+        "Application Process": 0.5,
+        "English Language": 1.0,
+        "Entry Requirements": 1.0,
+        "Fees & Funding": 0.8,
+        "General Enquiries": 0.6666666666666666,
+        "Program Details": 0.5714285714285714,
+        "Scholarships": 0.8,
+        "Visa & Immigration": 0.0
+      },
+      "macro_f1": 0.682010582010582
+    },
+    {
+      "fold": 3,
+      "n_val": 19,
+      "support": {
+        "Accommodation": 2,
+        "Application Process": 2,
+        "English Language": 3,
+        "Entry Requirements": 3,
+        "Fees & Funding": 3,
+        "General Enquiries": 1,
+        "Program Details": 2,
+        "Scholarships": 2,
+        "Visa & Immigration": 1
+      },
+      "per_class_f1": {
+        "Accommodation": 1.0,
+        "Application Process": 0.8,
+        "English Language": 1.0,
+        "Entry Requirements": 0.4,
+        "Fees & Funding": 1.0,
+        "General Enquiries": 1.0,
+        "Program Details": 0.5,
+        "Scholarships": 1.0,
+        "Visa & Immigration": 1.0
+      },
+      "macro_f1": 0.8555555555555555
+    },
+    {
+      "fold": 4,
+      "n_val": 19,
+      "support": {
+        "Accommodation": 2,
+        "Application Process": 2,
+        "English Language": 3,
+        "Entry Requirements": 3,
+        "Fees & Funding": 3,
+        "General Enquiries": 1,
+        "Program Details": 2,
+        "Scholarships": 2,
+        "Visa & Immigration": 1
+      },
+      "per_class_f1": {
+        "Accommodation": 1.0,
+        "Application Process": 0.6666666666666666,
+        "English Language": 0.75,
+        "Entry Requirements": 0.5,
+        "Fees & Funding": 0.8,
+        "General Enquiries": 0.6666666666666666,
+        "Program Details": 1.0,
+        "Scholarships": 0.8,
+        "Visa & Immigration": 1.0
+      },
+      "macro_f1": 0.7981481481481482
+    }
+  ],
+  "note": "Stratified CV over the corpus documents (question + answer + keywords) with hand-assigned categories; NOT a measurement on user queries."
+}

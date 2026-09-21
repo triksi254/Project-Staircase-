@@ -1,0 +1,370 @@
+{
+  "config": {
+    "corpus": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\data\\faq_corpus.json",
+    "batch_a": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\evaluation\\gold_queries.json",
+    "batch_b": "C:\\Users\\admin\\Downloads\\Project-Staircase--main\\Scrapper\\evaluation\\gold_queries_b.json",
+    "threshold": 0.6,
+    "seed": 42,
+    "n_bootstrap": 1000,
+    "withhold_frac": 0.3,
+    "rank_fail": 3,
+    "top_k": 5,
+    "keyword_bonus": 0.1,
+    "gap_definition": "gold entry unretrievable or ranked > rank_fail (the abstention gate is reported separately as n_below_gate, not counted)"
+  },
+  "stage1_full": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.4851,
+    "std_top1_score": 0.1861,
+    "mean_top1_score_answerable": 0.504,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2333,
+    "abstention_recall": 0.7778,
+    "false_abstention_rate": 0.7419,
+    "n_predicted_abstain": 30,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage2_cold_start": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.3226,
+    "mrr": 0.3844,
+    "recall_at_3": 0.4516,
+    "recall_at_5": 0.4839,
+    "mean_top1_score": 0.465,
+    "std_top1_score": 0.1732,
+    "mean_top1_score_answerable": 0.491,
+    "mean_raw_cosine": 0.28,
+    "std_raw_cosine": 0.0954,
+    "mean_raw_cosine_answerable": 0.291,
+    "abstention_precision": 0.2581,
+    "abstention_recall": 0.8889,
+    "false_abstention_rate": 0.7419,
+    "n_predicted_abstain": 31,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage3_probe": {
+    "n_probe_queries": 23,
+    "n_failures": 14,
+    "n_below_gate": 20
+  },
+  "stage4_full_restore": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.4851,
+    "std_top1_score": 0.1861,
+    "mean_top1_score_answerable": 0.504,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2333,
+    "abstention_recall": 0.7778,
+    "false_abstention_rate": 0.7419,
+    "n_predicted_abstain": 30,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "stage4b_targeted_restore": {
+    "n_queries": 40,
+    "n_answerable": 31,
+    "n_abstain_expected": 9,
+    "rank_1_accuracy": 0.4839,
+    "mrr": 0.5699,
+    "recall_at_3": 0.6452,
+    "recall_at_5": 0.7097,
+    "mean_top1_score": 0.4851,
+    "std_top1_score": 0.1861,
+    "mean_top1_score_answerable": 0.504,
+    "mean_raw_cosine": 0.2919,
+    "std_raw_cosine": 0.1093,
+    "mean_raw_cosine_answerable": 0.3064,
+    "abstention_precision": 0.2333,
+    "abstention_recall": 0.7778,
+    "false_abstention_rate": 0.7419,
+    "n_predicted_abstain": 30,
+    "config": {
+      "threshold": 0.6,
+      "top_k": 5
+    }
+  },
+  "n_entries_full": 98,
+  "n_entries_reduced": 90,
+  "n_entries_targeted": 98,
+  "withheld_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "restored_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "targeted_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "batch_a_withheld_ids": [
+    2,
+    10,
+    12,
+    16,
+    17
+  ],
+  "targeted_by_category_ids": [
+    2,
+    10,
+    12,
+    16,
+    17,
+    61,
+    71,
+    82
+  ],
+  "failed_categories": [
+    "Accommodation",
+    "Application Process",
+    "Entry Requirements",
+    "Program Details",
+    "Scholarships",
+    "Visa & Immigration"
+  ],
+  "batch_a_failures": [
+    {
+      "query": "What documents do I need to begin?",
+      "gold_id": 17,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.1972,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Can you help me find scholarships?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.7378,
+      "predicted_abstain": false,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "How long does the application process take?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.4027,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What do I need to do for my student visa to be guaranteed?",
+      "gold_id": 16,
+      "category": "Visa & Immigration",
+      "rank": null,
+      "top1_score": 0.2707,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Can I use financial aid to pay for study abroad?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.4831,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What are the qualifications to studying in UK?",
+      "gold_id": 2,
+      "category": "Entry Requirements",
+      "rank": null,
+      "top1_score": 0.3274,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What GPA do I need to study in UK?",
+      "gold_id": 2,
+      "category": "Entry Requirements",
+      "rank": null,
+      "top1_score": 0.4656,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What subjects can I study while abroad?",
+      "gold_id": 12,
+      "category": "Program Details",
+      "rank": null,
+      "top1_score": 0.2477,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "How do I handle housing?",
+      "gold_id": 6,
+      "category": "Accommodation",
+      "rank": 4,
+      "top1_score": 0.208,
+      "predicted_abstain": true,
+      "reason": "rank>3"
+    },
+    {
+      "query": "How do I get started?",
+      "gold_id": 18,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.0944,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "What documentation should I submit with my application?",
+      "gold_id": 17,
+      "category": "Application Process",
+      "rank": null,
+      "top1_score": 0.3757,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Do I need to apply for a student visa?",
+      "gold_id": 16,
+      "category": "Visa & Immigration",
+      "rank": null,
+      "top1_score": 0.2309,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Where can I find study abroad scholarships?",
+      "gold_id": 10,
+      "category": "Scholarships",
+      "rank": null,
+      "top1_score": 0.625,
+      "predicted_abstain": false,
+      "reason": "unretrievable"
+    },
+    {
+      "query": "Where will I live during my study abroad program?",
+      "gold_id": 6,
+      "category": "Accommodation",
+      "rank": null,
+      "top1_score": 0.2524,
+      "predicted_abstain": true,
+      "reason": "unretrievable"
+    }
+  ],
+  "batch_b_in_stage3": false,
+  "delta": {
+    "cold_start_cost_recall_at_3": 0.1936,
+    "cold_start_cost_recall_at_5": 0.2258,
+    "full_restore_recall_at_3": 0.1936,
+    "full_restore_recall_at_5": 0.2258,
+    "targeted_restore_recall_at_3": 0.1936,
+    "targeted_restore_recall_at_5": 0.2258
+  },
+  "recovery": {
+    "full_recall_at_3": 1.0,
+    "targeted_recall_at_3": 1.0,
+    "full_recall_at_5": 1.0,
+    "targeted_recall_at_5": 1.0
+  },
+  "residual_gap": {
+    "recall_at_3": 0.0,
+    "recall_at_5": 0.0
+  },
+  "bootstrap_ci": {
+    "full_recall_at_3": {
+      "metric": "recall_at_3",
+      "n": 31,
+      "n_bootstrap": 1000,
+      "delta": 0.1935,
+      "mean": 0.1939,
+      "ci_low": 0.0645,
+      "ci_high": 0.3548
+    },
+    "full_recall_at_5": {
+      "metric": "recall_at_5",
+      "n": 31,
+      "n_bootstrap": 1000,
+      "delta": 0.2258,
+      "mean": 0.2244,
+      "ci_low": 0.0968,
+      "ci_high": 0.3871
+    },
+    "targeted_recall_at_3": {
+      "metric": "recall_at_3",
+      "n": 31,
+      "n_bootstrap": 1000,
+      "delta": 0.1935,
+      "mean": 0.1939,
+      "ci_low": 0.0645,
+      "ci_high": 0.3548
+    },
+    "targeted_recall_at_5": {
+      "metric": "recall_at_5",
+      "n": 31,
+      "n_bootstrap": 1000,
+      "delta": 0.2258,
+      "mean": 0.2244,
+      "ci_low": 0.0968,
+      "ci_high": 0.3871
+    }
+  },
+  "integrity": {
+    "before": {
+      "corpus": "a89bc2a131bcadb2220ffedf8bc90ff700e6351e64076917ff7ed5a3fc92196c",
+      "vectorizer_cache": "f8c88010d80323187c99d3775e52f278d36d5b33c182421cf3f881cd9545443c",
+      "matrix_cache": "865bbea06c83b416037964f59a22c2c8760e7b643ddf74d020f27ff6b8f31ff3"
+    },
+    "after": {
+      "corpus": "a89bc2a131bcadb2220ffedf8bc90ff700e6351e64076917ff7ed5a3fc92196c",
+      "vectorizer_cache": "f8c88010d80323187c99d3775e52f278d36d5b33c182421cf3f881cd9545443c",
+      "matrix_cache": "865bbea06c83b416037964f59a22c2c8760e7b643ddf74d020f27ff6b8f31ff3"
+    },
+    "unchanged": true,
+    "corpus_unchanged": true,
+    "caches_unchanged": true
+  }
+}

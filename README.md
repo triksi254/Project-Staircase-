@@ -129,81 +129,134 @@ storage.save_results("aston_university", "courses", enriched_data, scraper.metad
 
 ```
 Scrapper/
-├── main.py                      # Entry point
-├── requirements.txt             # Dependencies
-├── .env.example                 # Environment template
-├── batch_config_example.json    # Batch job config
+├── main.py                      # Scraper entry point
+├── requirements.txt             # Core dependencies (+ requirements-ml.txt, requirements-app.txt)
 │
-├── config/
-│   ├── settings.py              # Global configuration (env-based)
-│   ├── institutions.yaml        # Institution definitions
-│   └── selectors.yaml           # CSS selectors
+├── config/  models/  scrapers/  processors/  storage/  faq/   # scraper pipeline (Ch. 3)
+│   └── models/                  # Pydantic schemas (package) + classifier artifacts
 │
-├── models/
-│   └── schemas.py               # Pydantic Course/Accommodation models
-│
-├── scrapers/
-│   ├── base_scraper.py          # Abstract base class
-│   ├── html_scraper.py          # BeautifulSoup-based
-│   ├── js_scraper.py            # Playwright-based
-│   ├── smart_scraper.py         # Router (JS detection)
-│   └── page_interaction.py      # Shared Playwright helpers (accordions, browser)
-│
-├── processors/
-│   ├── data_processor.py        # Data cleaning & validation
-│   └── requirements_extractor.py# Kenya entry-requirement field extraction
-│
-├── storage/
-│   └── storage.py               # Database & export
-│
-├── faq/
-│   └── faq_integrator.py        # FAQ cross-reference
-│
-├── leads/                       # Lead-scoring engine (proposal: rule + ML hybrid)
-│   ├── features.py              # Behavioural feature extraction (Cold/Warm/Hot label)
-│   ├── rubric.py                # Explainable rule-based scorer (alpha prior)
-│   ├── personas.py              # Synthetic chatbot session simulator (~1000 sessions)
-│   ├── train_ml.py              # Random Forest / LogReg + generalization experiment
-│   └── RESULTS.md               # Experimental results & findings
-│
-├── artifacts/                   # Trained model + metrics (metrics_*.json tracked)
 ├── CounsellorForms/             # EML assessment-form extraction (see its README)
-├── scratch/                     # One-off exploration scripts (gitignored)
 │
-├── data/
-│   ├── raw/                     # Downloaded raw JSON
-│   ├── processed/               # Cleaned data (CSV/JSON)
-│   └── faq_corpus.json          # FAQ database
+├── leads/                       # Lead scoring (rule + ML hybrid)
+│   ├── features.py              # Counsellor-form feature extraction (Cold/Warm/Hot label)
+│   ├── rubric.py                # Explainable rule-based scorer
+│   ├── personas.py              # Synthetic session generators (v1 hand-set, v2 label-model)
+│   ├── train_ml.py              # RF / LogReg, CV, generalization (--group-by-lead)
+│   ├── eval_augmentation.py     # real-only / +v1 / +v2 / +distill (--group-split, --render-only)
+│   ├── alpha_calibration.py     # train-only, lead-grouped alpha sweep
+│   ├── hybrid.py                # alpha*rule + (1-alpha)*ml, live model loading + preprocessing
+│   ├── live_config.py           # builds artifacts/config.json (model, alpha, imputation table)
+│   └── RESULTS.md / RESULTS_v2.md / RESULTS_v2_grouped.md
 │
-├── logs/
-│   └── scraper.log              # Application logs
+├── chatbot/                     # Retrieval chatbot
+│   ├── retriever.py             # TF-IDF + keyword bonus (KEYWORD_BONUS)
+│   ├── embeddings.py            # Sentence-BERT retriever (optional, requirements-ml.txt)
+│   ├── classifier.py            # question-type classifier (TF-IDF + LogReg)
+│   ├── responder.py             # grounded answer / abstain / escalate (gate constants live here)
+│   ├── session_features.py      # live chat -> rubric evidence + engagement features
+│   └── demo.py                  # CLI demo
 │
-└── tests/
-    ├── test_scrapers.py
-    ├── test_processors.py
-    ├── test_eml_extractor.py
-    ├── test_lead_features.py
-    ├── test_lead_rubric.py
-    ├── test_lead_personas.py
-    ├── test_lead_train_ml.py
-    └── smoke_test.py
+├── evaluation/                  # H1 retrieval evaluation
+│   ├── retrieval_eval.py  compare_retrievers.py  adaptation_loop.py
+│   └── gold_queries.json (A, 39) / gold_queries_b.json (B, 40)   # author-written, NOT blind
+│
+├── dashboard/app.py             # Streamlit counsellor test platform (chat + live scoring)
+│
+├── artifacts/                   # metrics/config JSON tracked; *.pkl gitignored
+│   ├── config.json              # live-scoring config (model_file, alpha, imputation) - python -m leads.live_config
+│   ├── *_corrected.json         # regenerated after fixes; the tagged originals are kept as evidence
+│   └── eval_augmentation_grouped*.json, alpha_calibration.json, classifier_cv.json
+│
+├── data/faq_corpus.json         # 98 FAQ entries (hand-curated, grounded in scraped pages)
+├── scratch/                     # one-off exploration scripts (gitignored; corpus assembly lives here)
+└── tests/                       # 344 tests (SBERT tests skip without requirements-ml.txt)
 ```
 
 ## 🧠 Lead Scoring Pipeline
 
 ```bash
-python -m leads.features                      # real feature matrix (964 rows)
+python -m leads.features                      # feature matrix + data-quality warnings
 python -m leads.rubric                        # rule-based Cold/Warm/Hot scores
-python -m leads.personas --n 1000 --seed 42   # synthetic chatbot sessions
-python -m leads.train_ml --cv 5 --cv-repeat 2 # train + generalization experiment
+python -m leads.personas --n 1000 --seed 42   # synthetic sessions (v1); --generator v2 for v2
+python -m leads.train_ml --cv 5 --cv-repeat 2 [--group-by-lead]
+python -m leads.eval_augmentation --seeds 1,7,42 [--group-split]
+python -m leads.alpha_calibration             # train-only alpha sweep -> artifacts/alpha_calibration.json
+python -m leads.live_config [--check]         # artifacts/config.json for the dashboard
+streamlit run dashboard/app.py                # needs requirements-app.txt (+ requirements-ml.txt for SBERT)
 ```
 
-See **[leads/RESULTS.md](leads/RESULTS.md)** for the full results. Headline:
-the combined model reaches macro F1 0.896, but that number is confounded by
-engagement features that exist only in synthetic data. On real leads alone the
-defensible figure is macro F1 **0.62**, and synthetic augmentation **reduced**
-real-world performance in every configuration tested — a negative result worth
-reporting.
+Headline (full detail: [leads/RESULTS.md](leads/RESULTS.md),
+[leads/RESULTS_v2.md](leads/RESULTS_v2.md), [leads/RESULTS_v2_grouped.md](leads/RESULTS_v2_grouped.md)):
+
+- The combined model's **0.90 macro F1 is a confound**: it rides on engagement
+  features that exist only in synthetic data. On real leads the defensible figure
+  is macro F1 **~0.62-0.64**, Hot F1 ~0.3-0.4 (about 12 Hot rows per holdout).
+- **v1 synthetic augmentation hurts** in every configuration. **v2** appeared to help
+  in the full feature set (+0.107 mean under the row-level split), but that gain
+  does not survive a lead-grouped split (+0.048, seed range [-0.012, +0.092]) and is
+  absent in the fair no-engagement set (<= 0 at all three seeds when grouped).
+- The blend weight **alpha = 0.5 is an uncalibrated default**. The train-only,
+  lead-grouped calibration (`artifacts/alpha_calibration.json`) finds alpha = 0.1
+  best (macro F1 0.623) versus 0.471 at 0.5 and 0.166 for the rubric alone: on
+  counsellor labels the form rubric adds nothing (it agrees with the counsellor
+  ~19% of the time). This does not transfer to the dashboard's chat rule score.
+
+### Running the dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
+
+The first start loads the Sentence-BERT model (a few seconds; a `Loading weights`
+progress bar is normal). The page header states which retriever is active
+(`Retrieval: sbert · abstains below 0.60`); if SBERT cannot start you get a warning
+and TF-IDF at a lower gate. The terminal should be nearly silent. Two messages are
+benign and **not from the app**: the `Loading weights` progress bar, and on Windows a
+`ConnectionResetError: [WinError 10054]` from asyncio when a browser tab closes
+abruptly. (Importing `transformers` used to make Streamlit's file watcher log ~400
+tracebacks about a missing `torchvision`; `dashboard/app.py` filters exactly those
+records, and the model now loads from the local HuggingFace cache first, so there is
+no "unauthenticated requests" warning.)
+
+## 🔎 Known limitations (read before citing numbers)
+
+- **Repeated leads.** 39% of the 861 labelled rows (336) belong to a CRM id that
+  occurs more than once, almost always with the same label. A row-level split puts a
+  same-lead sibling in train for 38-42% of holdout rows. `--group-by-lead` /
+  `--group-split` remove this; the default splits are unchanged so tagged results
+  stay reproducible. `python -m leads.features` prints this warning.
+- **Sparse features.** Only 127 distinct profile vectors among 861 rows; 61% of rows
+  sit in a vector with conflicting labels. `assessment_notes` is empty in all 964
+  records (so `note_word_count` is constant). `passport_status = valid` is a
+  *default* (94% of rows, all Hot), not an observation.
+- **Live scoring is provisional.** The dashboard's rule score covers only what a chat
+  can observe (course / intake / English topics); unobservable fields are imputed from
+  the training table in `artifacts/config.json`, never assumed negative. Its ML score
+  is `lead_model_rf_full.pkl`, an *engagement-persona* model (~71% of importance on
+  synthetic-only engagement features), not a validated conversion model. The `*.pkl`
+  files are gitignored: on a clean clone the dashboard is rule-only and the
+  classifier falls back to "General Enquiries".
+- **Retrieval evaluation.** The gold sets are author-written against an author-built
+  corpus (not blind); 65-84% of answerable queries contain a keyword of their own gold
+  entry. SBERT-vs-TF-IDF differences are not statistically significant on either set.
+  The TF-IDF abstention metrics depend on `KEYWORD_BONUS`: the tagged artifacts used
+  0.05, the code later moved to 0.10 (see `artifacts/compare_gold_*_corrected.json`).
+  The adaptation loop cannot discriminate targeted from full restoration with 8
+  withheld entries over 9 categories (`artifacts/adaptation_results_corrected.json`).
+- **Data governance.** The tracked `CounsellorForms/output/*.json` retains numeric
+  CRM ids (`PII_Removal_Checklist.txt` says "preserved"), whereas the research
+  proposal promised to remove them - a decision for the author / ethics sign-off.
+
+## Deviations from the proposal
+
+| Proposal | As built |
+|---|---|
+| SBERT + FAISS, live web-search (Tavily) fallback, weekly refresh | SBERT with exact dot product (no FAISS); no web fallback; no scheduler |
+| DistilBERT classifier arm; XGBoost | TF-IDF + LogReg only; RF + LogReg |
+| "Only synthetic" lead-scoring (RQ2), n~50-100 real forms | 861 real counsellor rows + synthetic; no synthetic-only run |
+| H1 on cosine vs gold *answers* > 0.80 | Query-to-document raw cosine (falsified) + rank metrics (post hoc) |
+| H2 on synthetic personas, F1 > 0.80 | Real counsellor labels (not met: ~0.62-0.64) |
+| H3 (score rises with intent) tested with ANOVA | Not a statistical test; scripted demo only |
 
 ## ✨ Key Features
 

@@ -3,8 +3,12 @@
 Trained on the enriched faq_corpus.json (98 entries with category field):
 TF-IDF (1-2 grams) + LogisticRegression, class_weight='balanced'.
 98 entries / 9 categories is thin (Visa & Immigration and General
-Enquiries have 5 each), so expect macro F1 ~0.60-0.75 — a finding, not
-a failure. Persist to models/classifier.pkl + models/classifier_labels.json.
+Enquiries have 5 each). The 5-fold CV macro F1 is recorded in
+``artifacts/classifier_cv.json`` (``python -m chatbot.classifier --out ...``);
+note it is measured on the *corpus documents* (question + answer + keywords,
+categories assigned by hand in ``scripts/enrich_corpus.py``), not on user
+queries, so it does not estimate query-classification accuracy. Persists to
+models/classifier.pkl (gitignored) + models/classifier_labels.json.
 """
 from __future__ import annotations
 
@@ -132,17 +136,41 @@ def cv_report(texts, labels, k=5):
     return {"k": k, "folds": folds}
 
 
+def cv_summary(texts, labels, k=5):
+    """``cv_report`` plus mean/std and provenance, as a JSON-ready dict."""
+    import statistics
+    out = cv_report(texts, labels, k=k)
+    macros = [f["macro_f1"] for f in out["folds"]]
+    return {
+        "k": k,
+        "n_documents": len(texts),
+        "n_categories": len(set(labels)),
+        "mean_macro_f1": sum(macros) / len(macros),
+        "std_macro_f1": statistics.pstdev(macros) if len(macros) > 1 else 0.0,
+        "folds": out["folds"],
+        "note": ("Stratified CV over the corpus documents (question + answer + "
+                 "keywords) with hand-assigned categories; NOT a measurement on "
+                 "user queries."),
+    }
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="Question-type classifier")
     ap.add_argument("--cv-verbose", action="store_true")
     ap.add_argument("--k", type=int, default=5)
+    ap.add_argument("--out", type=Path, default=None,
+                    help="also write the CV summary (per-fold + mean) as JSON")
     args = ap.parse_args(argv)
     texts, labels = load_training_data()
-    out = cv_report(texts, labels, k=args.k)
+    summary = cv_summary(texts, labels, k=args.k)
     if not args.cv_verbose:
-        mean = sum(f["macro_f1"] for f in out["folds"]) / len(out["folds"])
-        print(f"mean macro F1: {mean:.4f}")
+        print(f"mean macro F1: {summary['mean_macro_f1']:.4f}")
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(summary, indent=2) + "\n",
+                            encoding="utf-8")
+        print(f"Wrote {args.out}")
     return 0
 
 
