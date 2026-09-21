@@ -178,3 +178,56 @@ def test_real_gold_sets_are_disjoint_on_query_strings():
                    .read_text(encoding="utf-8"))
     overlap = {x["query"] for x in a} & {x["query"] for x in b}
     assert not overlap, "gold sets share query text: %s" % sorted(overlap)
+
+# --------------------------------------------------------------------------- #
+# regression: a "gap" is a retrieval failure, not an abstention-gate decision
+# --------------------------------------------------------------------------- #
+def _two_category_fixtures(tmp_path):
+    """Entries 0-9 'Program Details', 10-19 'Fees & Funding'.
+
+    Batch B only ever targets 0-9, so the withheld set lives in one category.
+    Batch A probes both categories, but its 'Fees & Funding' targets (15-17)
+    can never be withheld and therefore always rank first.
+    """
+    faqs = [{"question": "What about topic%d alpha%d?" % (i, i),
+             "answer": "Answer for topic%d alpha%d beta%d." % (i, i, i),
+             "keywords": ["topic%d" % i],
+             "category": "Program Details" if i < 10 else "Fees & Funding",
+             "institution": "General"} for i in range(20)]
+    corpus = tmp_path / "corpus2.json"
+    corpus.write_text(json.dumps({"faqs": faqs}), encoding="utf-8")
+    b = _write_gold(tmp_path, "b2.json", [
+        {"query": "topic%d alpha%d" % (i, i), "gold_id": i,
+         "category": "Program Details", "expected_abstain": False}
+        for i in range(10)])
+    a = _write_gold(tmp_path, "a2.json", (
+        [{"query": "please explain topic%d alpha%d" % (i, i), "gold_id": i,
+          "category": "Program Details", "expected_abstain": False}
+         for i in range(5, 10)]
+        + [{"query": "please explain topic%d alpha%d" % (i, i), "gold_id": i,
+            "category": "Fees & Funding", "expected_abstain": False}
+           for i in range(15, 18)]))
+    return corpus, a, b
+
+
+def test_probe_failures_are_rank_based_not_gate_based(tmp_path):
+    """Regression: at TF-IDF@0.60 every probe query used to be a 'failure'
+    (top1_score < gate), so targeted restoration equalled full restoration."""
+    out = _run(tmp_path, threshold=0.999)   # gate above every possible score
+    withheld_in_a = set(out["batch_a_withheld_ids"])
+    assert out["stage3_probe"]["n_failures"] == len(withheld_in_a)
+    assert {f["reason"] for f in out["batch_a_failures"]} <= {
+        "unretrievable", "rank>3"}
+    assert out["stage3_probe"]["n_below_gate"] == out["stage3_probe"][
+        "n_probe_queries"]                      # still reported, not counted
+
+
+def test_untouched_categories_are_not_flagged_by_a_high_gate(tmp_path):
+    corpus, a, b = _two_category_fixtures(tmp_path)
+    out = run_adaptation_experiment(corpus_path=corpus, batch_a_path=a,
+                                    batch_b_path=b, threshold=0.999)
+    assert "Fees & Funding" not in out["failed_categories"]
+    withheld = set(out["withheld_ids"])
+    assert not any(i in withheld for i in (15, 16, 17))
+    # the rule "restore withheld ids in failed categories" stays well-defined
+    assert set(out["targeted_ids"]) <= withheld

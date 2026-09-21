@@ -8,10 +8,11 @@ when the corpus genuinely cannot answer the question (an abstention).
 Two distinct score notions are reported, because conflating them would
 overstate H1:
 
-* ``top1_score`` - what ``Retriever.search`` returns: TF-IDF cosine plus a
-  0.05 keyword bonus per matched keyword, capped at 1.0. This is the value
-  ``chatbot.responder`` compares against ``min_confidence``, so it is what
-  actually drives the abstention decision here.
+* ``top1_score`` - what ``search`` returns. For the TF-IDF ``Retriever`` that
+  is the cosine plus ``chatbot.retriever.KEYWORD_BONUS`` (0.10) per matched
+  keyword, capped at 1.0; for the Sentence-BERT retriever it is the raw cosine.
+  This is the value ``chatbot.responder`` compares against ``min_confidence``,
+  so it is what actually drives the abstention decision here.
 * ``raw_cosine`` - the pure top-1 TF-IDF cosine, no keyword bonus. H1 is
   stated on this, per the proposal wording ("cosine similarity scores
   greater than 0.80").
@@ -26,7 +27,9 @@ from typing import Any, Dict, List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_GOLD = PROJECT_ROOT / "evaluation" / "gold_queries.json"
-DEFAULT_THRESHOLD = 0.60
+from chatbot.responder import EVALUATED_GATE  # noqa: E402  (single definition)
+
+DEFAULT_THRESHOLD = EVALUATED_GATE
 SWEEP_THRESHOLDS = (0.20, 0.30, 0.40, 0.50, 0.60)
 TOP_K = 5
 

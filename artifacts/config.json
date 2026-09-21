@@ -1,0 +1,44 @@
+{
+  "alpha": 0.5,
+  "alpha_source": "uncalibrated default (leads.hybrid.DEFAULT_ALPHA). The form-rubric calibration is in artifacts/alpha_calibration.json; it does not transfer to the live chat rule score, which is computed over a different feature subset.",
+  "model_file": "lead_model_rf_full.pkl",
+  "model_description": "rf_full: RandomForest trained on 861 real counsellor rows + 1000 v1 synthetic sessions. About 71% of its importance sits on synthetic-only engagement features, so the live score is an engagement-persona score, not a validated lead-conversion model. Provisional demo output.",
+  "imputation": {
+    "medians": {
+      "funding_clarity": 3.0,
+      "funding_method_present": 1.0,
+      "has_english_test": 0.0,
+      "note_word_count": 0.0,
+      "message_count": 7.0,
+      "avg_delay_s": 52.6,
+      "question_category_entropy": 0.9852,
+      "visa_intent_mentioned": 1.0,
+      "returning_session": 0.0,
+      "session_word_count": 112.0
+    },
+    "modes": {
+      "passport_status": "2",
+      "qual_level": "0",
+      "destination_uk": "1",
+      "has_course": "1",
+      "has_intake": "1",
+      "study_gap_mentioned": "0",
+      "previous_application_mentioned": "0"
+    }
+  },
+  "provenance": {
+    "generated_by": "python -m leads.live_config",
+    "real_rows": "data/processed",
+    "synthetic": "leads.personas v1, n=1000, seed=42",
+    "n_real": 861,
+    "n_synthetic": 1000,
+    "label_distribution": {
+      "Cold": 458,
+      "Warm": 857,
+      "Hot": 546
+    },
+    "matches_metrics_schema": true,
+    "metrics_file": "metrics_rf_full.json",
+    "engagement_importance_share": 0.7113
+  }
+}

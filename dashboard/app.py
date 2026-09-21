@@ -19,24 +19,34 @@ Dissertation downloads: every lead (active + each archived one) offers
 ``st.download_button`` exports of its transcript in JSON (full record),
 Markdown (appendix-ready), and CSV (one row per turn) via
 :func:`transcript_to_json`, :func:`transcript_to_markdown`,
-:func:`transcript_to_csv`.
+:func:`transcript_to_csv`. Each turn also records the escalation decision,
+priority, lead label/score and the retrieval backend + gate that produced it.
 
-Per-turn pipeline: user text -> shared TF-IDF ``Retriever`` ->
-``chatbot.session_features.SessionTracker.add_turn`` ->
-rule score (``leads.rubric``) -> hybrid rule-only (``ml_proba=None``) ->
-label via ``score_to_label`` -> ``responder.respond`` for the grounded
-answer + escalation flag.
+Per-turn pipeline (:func:`_answer_query`): user text -> retriever (Sentence-BERT
+when it can start, else TF-IDF; each with its own abstention gate) ->
+``responder.respond`` (grounded answer or abstention) ->
+``SessionTracker.add_turn`` -> **then** the lead is scored (rule over
+chat-observable topics + the provisional engagement ML score, blended at the
+configured alpha, mapped by ``score_to_label``) -> escalation is decided from
+that post-turn label, so the decision reflects the message just sent.
 """
 from __future__ import annotations
 
 import csv
+import functools
 import io
 import json
+import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 PROJECT_TITLE = "Counsellor Test Platform"
 NEW_LEAD_BADGE_TURNS = 3
+
+#: Columns appended to the transcript CSV/rows (blank for older entries).
+DECISION_FIELDS = ("escalate", "priority", "lead_label", "lead_score",
+                   "retrieval_backend")
 
 
 def _st():
@@ -70,8 +80,9 @@ def archive_entry(lead_id: str, tracker, rule: float, hybrid: float,
     For dissertation evidence the full chat transcript is stored alongside
     the final score/label: ``chat`` holds the rendered user/assistant
     messages and ``turns_log`` the per-turn classifier signals (category,
-    confidence, timestamp). Both default to ``[]`` so old callers
-    (``archive_entry(lead_id, tracker, rule, hybrid, label)``) keep working.
+    confidence, timestamp) and routing decision. Both default to ``[]`` so old
+    callers (``archive_entry(lead_id, tracker, rule, hybrid, label)``) keep
+    working.
     """
     feats = tracker.features() if tracker is not None else {}
     return {
@@ -88,12 +99,14 @@ def archive_entry(lead_id: str, tracker, rule: float, hybrid: float,
 
 
 def transcript_rows(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """One row per user turn: user msg + assistant reply + signals.
+    """One row per user turn: user msg + assistant reply + signals + decision.
 
-    ``turns_log`` carries the classifier signals (category/confidence/ts)
-    per user turn; the rendered assistant reply is recovered from ``chat``
-    (layout ``[user0, asst0, user1, asst1, ...]``). Falls back to pairing
-    raw ``chat`` messages when ``turns_log`` is empty.
+    ``turns_log`` carries the classifier signals (category/confidence/ts) and,
+    for turns recorded by :func:`_answer_query`, the routing decision
+    (``DECISION_FIELDS``); older entries yield blanks. The rendered assistant
+    reply is recovered from ``chat`` (layout ``[user0, asst0, user1, asst1,
+    ...]``). Falls back to pairing raw ``chat`` messages when ``turns_log`` is
+    empty.
     """
     chat = list(entry.get("chat") or [])
     turns = list(entry.get("turns_log") or [])
@@ -105,27 +118,33 @@ def transcript_rows(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
                 idx = 2 * i + 1
                 if 0 <= idx < len(chat):
                     assistant_text = str(chat[idx].get("text", ""))
-            rows.append({
+            row = {
                 "turn_no": i + 1,
                 "timestamp": t.get("ts", ""),
                 "user_message": t.get("user_msg", ""),
                 "assistant_response": assistant_text,
                 "category": t.get("category", ""),
                 "confidence": t.get("confidence", 0.0),
-            })
+            }
+            for key in DECISION_FIELDS:
+                row[key] = t.get(key, "")
+            rows.append(row)
         return rows
     # Fallback: pair raw chat messages when no per-turn signals exist.
     for i in range(0, len(chat), 2):
         user_text = str(chat[i].get("text", "")) if i < len(chat) else ""
         asst_text = str(chat[i + 1].get("text", "")) if i + 1 < len(chat) else ""
-        rows.append({
+        row = {
             "turn_no": len(rows) + 1,
             "timestamp": "",
             "user_message": user_text,
             "assistant_response": asst_text,
             "category": "",
             "confidence": 0.0,
-        })
+        }
+        for key in DECISION_FIELDS:
+            row[key] = ""
+        rows.append(row)
     return rows
 
 
@@ -164,15 +183,38 @@ def transcript_to_markdown(entry: Dict[str, Any]) -> str:
             meta += f" · {r['timestamp']}"
         lines += [f"### {meta}", "", f"**User:** {r['user_message']}",
                   "", f"**Assistant:** {r['assistant_response']}", ""]
+        decision = _decision_line(r)
+        if decision:
+            lines += [decision, ""]
     return "\n".join(lines)
 
 
+def _decision_line(row: Dict[str, Any]) -> str:
+    """One markdown line describing the routing decision (empty if unknown)."""
+    if row.get("lead_label") in ("", None) and row.get("escalate") in ("", None):
+        return ""
+    parts = []
+    if row.get("lead_label") not in ("", None):
+        try:
+            parts.append(f"Lead: **{row['lead_label']}** "
+                         f"({float(row.get('lead_score')):.2f})")
+        except (TypeError, ValueError):
+            parts.append(f"Lead: **{row['lead_label']}**")
+    if row.get("escalate") not in ("", None):
+        parts.append("Escalated to counsellor "
+                     f"(priority {row.get('priority') or 'n/a'})"
+                     if row["escalate"] else "Not escalated")
+    if row.get("retrieval_backend"):
+        parts.append(f"retrieval: {row['retrieval_backend']}")
+    return "_" + " · ".join(parts) + "_"
+
+
 def transcript_to_csv(entry: Dict[str, Any]) -> str:
-    """One row per turn (turn_no, timestamps, messages, signals)."""
+    """One row per turn (turn_no, timestamps, messages, signals, decision)."""
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=[
         "turn_no", "timestamp", "user_message", "assistant_response",
-        "category", "confidence"])
+        "category", "confidence", *DECISION_FIELDS])
     writer.writeheader()
     for r in transcript_rows(entry):
         writer.writerow(r)
@@ -199,45 +241,81 @@ def build_live_entry(st, tracker=None, scored: Optional[Dict[str, Any]] = None
     return entry
 
 
+# --------------------------------------------------------------------------- #
+# retrieval backend + gate
+# --------------------------------------------------------------------------- #
 def _get_retriever():
-    """Shared retriever for the session. Prefer Sentence-BERT when available.
+    """Shared retriever: Sentence-BERT when it can actually start, else TF-IDF.
 
-    When ``sentence-transformers`` is installed the semantic ``SbertRetriever``
-    is used (cosine of L2-normalised embeddings); otherwise falls back to the
-    TF-IDF ``Retriever``. The selected backend is logged once at import time
-    so it is visible in the console / Cloud Logs without a user query.
+    The SBERT model is loaded *here* (not lazily on the first query) so a
+    missing model/offline cache falls back cleanly instead of crashing a chat
+    turn. Any failure is logged with its reason; the backend in use is exposed
+    via :func:`_backend_of` and shown in the UI. (An earlier version imported
+    ``load_corpus`` from ``chatbot.embeddings`` -- it lives in
+    ``chatbot.retriever`` -- and the ``ImportError`` was swallowed, so the
+    dashboard silently ran TF-IDF every time.)
     """
-    try:
-        from chatbot.embeddings import SbertRetriever, load_corpus
-        from chatbot.embeddings import available as sbert_available
-    except ImportError:
-        sbert_available = False
-        SbertRetriever = None
-        load_corpus = None
-
-    if sbert_available and SbertRetriever is not None:
-        try:
-            entries = load_corpus()
-            retriever = SbertRetriever(entries)
-            import logging
-            logging.getLogger(__name__).info(
-                "dashboard: using SBERT retriever (model=%s, corpus=%d entries)",
-                retriever.model_name, len(retriever.entries))
-            return retriever
-        except Exception as exc:
-            import logging
-            logging.getLogger(__name__).warning(
-                "dashboard: SBERT init failed (%s) — falling back to TF-IDF", exc)
-
-    from chatbot.retriever import Retriever, load_corpus as _load_corpus
-    entries = _load_corpus()
     import logging
-    logging.getLogger(__name__).info(
-        "dashboard: using TF-IDF retriever (corpus=%d entries)", len(entries))
+    log = logging.getLogger(__name__)
+    from chatbot.retriever import Retriever, load_corpus
+    entries = load_corpus()
+    try:
+        from chatbot.embeddings import SbertRetriever, available
+        if available():
+            retriever = SbertRetriever(entries)
+            # Force the model load inside the try. Assigned, not a bare
+            # expression: Streamlit "magic" renders any bare expression in this
+            # file, which printed the whole SentenceTransformer repr onto the page.
+            _ = retriever.model
+            log.info("dashboard: using SBERT retriever (model=%s, corpus=%d)",
+                     retriever.model_name, len(retriever.entries))
+            return retriever
+        log.warning("dashboard: sentence-transformers not installed — "
+                    "using TF-IDF (pip install -r requirements-ml.txt)")
+    except Exception as exc:  # ImportError, offline/missing HF cache, ...
+        log.warning("dashboard: SBERT unavailable (%s: %s) — using TF-IDF",
+                    type(exc).__name__, exc)
+    log.info("dashboard: using TF-IDF retriever (corpus=%d entries)", len(entries))
     return Retriever(entries)
 
 
-def _score_turn(tracker, alpha: float = 0.5) -> Dict[str, Any]:
+def _cached_retriever(st):
+    """``_get_retriever`` cached across Streamlit reruns (model load is slow)."""
+    cache = getattr(st, "cache_resource", None)
+    if cache is None:
+        return _get_retriever()
+    return cache(show_spinner="Loading retrieval model…")(_get_retriever)()
+
+
+def _backend_of(retriever) -> str:
+    """``'sbert'`` or ``'tfidf'`` (unknown retrievers count as TF-IDF)."""
+    return str(getattr(retriever, "backend", "tfidf"))
+
+
+def _gate_for(backend: str) -> float:
+    """Abstention gate for a backend.
+
+    SBERT uses the evaluated operating point (``EVALUATED_GATE``, on the raw
+    cosine scale it was studied on). TF-IDF scores sit on a different scale
+    (cosine + keyword bonus): at 0.60 it withheld 90-100% of answerable gold
+    queries, so the TF-IDF fallback uses the permissive default instead.
+    """
+    from chatbot.responder import DEFAULT_MIN_CONFIDENCE, EVALUATED_GATE
+    return EVALUATED_GATE if backend == "sbert" else DEFAULT_MIN_CONFIDENCE
+
+
+# --------------------------------------------------------------------------- #
+# lead scoring
+# --------------------------------------------------------------------------- #
+@functools.lru_cache(maxsize=1)
+def _default_alpha() -> float:
+    """Blend weight from ``artifacts/config.json`` (else ``DEFAULT_ALPHA``)."""
+    from leads.hybrid import DEFAULT_ALPHA, get_default_alpha, load_config_json
+    cfg = load_config_json()
+    return float(get_default_alpha({"config": cfg})) if cfg else DEFAULT_ALPHA
+
+
+def _score_turn(tracker, alpha: Optional[float] = None) -> Dict[str, Any]:
     """Score the current session: rule, ML (if model loaded), hybrid, label.
 
     A tracker with no turns is an empty lead: skip the ML prediction
@@ -247,30 +325,27 @@ def _score_turn(tracker, alpha: float = 0.5) -> Dict[str, Any]:
     import logging
     from leads.hybrid import score_to_label, predict_ml_proba
 
+    alpha = _default_alpha() if alpha is None else float(alpha)
     if len(tracker) == 0:
         logging.getLogger(__name__).info(
             "dashboard turn: no turns yet — awaiting first message")
         return {"rule": 0.0, "ml_proba": None, "hybrid": 0.0,
-                "label": "Awaiting first message", "alpha": float(alpha)}
+                "label": "Awaiting first message", "alpha": alpha}
 
     rule = tracker.rule_score()
     ml_proba = predict_ml_proba(
         tracker.rubric_evidence(), engagement=tracker.features())
 
     logger = logging.getLogger(__name__)
-    if ml_proba is not None:
-        logger.info(
-            "dashboard turn: ml_proba=%s rule=%.4f hybrid=%.4f",
-            [round(p, 4) for p in ml_proba], rule,
-            _hybrid_from_proba(rule, ml_proba, alpha))
-    else:
-        logger.info(
-            "dashboard turn: ml_proba=None rule=%.4f (model not loaded)",
-            rule)
-
     hybrid = _hybrid_from_proba(rule, ml_proba, alpha)
+    if ml_proba is not None:
+        logger.info("dashboard turn: ml_proba=%s rule=%.4f hybrid=%.4f",
+                    [round(p, 4) for p in ml_proba], rule, hybrid)
+    else:
+        logger.info("dashboard turn: ml_proba=None rule=%.4f (model not loaded)",
+                    rule)
     return {"rule": rule, "ml_proba": ml_proba, "hybrid": hybrid,
-            "label": score_to_label(hybrid), "alpha": float(alpha)}
+            "label": score_to_label(hybrid), "alpha": alpha}
 
 
 def _hybrid_from_proba(rule: float, ml_proba: Optional[List[float]],
@@ -299,6 +374,15 @@ _INTENT_GROUPS = (
     ("aston", "bcu", "usw", "rgu", "herts", "salford", "uclan",
      "destination", "which university", "where should i study"),
 )
+
+#: Phrases that contain an intent keyword without expressing that intent.
+_NOT_INTENT = re.compile(r"\bof course\b")
+
+
+def _kw_in(query: str, keyword: str) -> bool:
+    """Whole-word / whole-phrase match (``grade`` must not match ``upgrade``)."""
+    return re.search(r"(?<!\w)" + re.escape(keyword) + r"(?!\w)", query) is not None
+
 
 def _ensure_lead(st) -> None:
     """Create the session's first lead lazily (is_new, counter, tracker)."""
@@ -337,7 +421,6 @@ def _get_tracker(st):
     return tracker
 
 
-
 def _close_lead_and_start_new(st) -> None:
     """Archive current lead, then reset chat + tracker with a new id."""
     tracker = _get_tracker(st)
@@ -363,30 +446,94 @@ def _close_lead_and_start_new(st) -> None:
 
 
 def _is_multi_intent(query: str) -> bool:
-    q = query.lower()
-    hits = sum(any(k in q for k in g) for g in _INTENT_GROUPS)
+    """True when the query raises more than two distinct intents.
+
+    Matching is by whole word/phrase, and the stock phrase "of course" is
+    ignored, so ordinary sentences are not mistaken for compound queries.
+    """
+    q = _NOT_INTENT.sub(" ", query.lower())
+    hits = sum(any(_kw_in(q, k) for k in g) for g in _INTENT_GROUPS)
     return hits > 2
 
 
-def _answer_query(query: str, tracker, retriever) -> Dict[str, Any]:
-    """One chat turn: respond, then record it on the tracker."""
-    from chatbot.responder import EscalationPolicy, respond
-    scored = _score_turn(tracker)
-    ml_proba = scored.get("ml_proba")
-    pre = tracker.hybrid(ml_proba=ml_proba)
-    if _is_multi_intent(query):
-        out = respond("purple monkey dishwasher", retriever,
-                      rule_score=pre, ml_score=None,
-                      policy=EscalationPolicy(alpha=1.0,
-                                              min_confidence=0.60), top_k=3)
-        out["query"] = query
-        out["category"] = "General Enquiries"
-    else:
-        out = respond(query, retriever, rule_score=pre, ml_score=None,
-                      policy=EscalationPolicy(alpha=1.0,
-                                              min_confidence=0.60), top_k=3)
+def _answer_query(query: str, tracker, retriever,
+                  gate: Optional[float] = None) -> Dict[str, Any]:
+    """One chat turn: respond, record it, then score and route the lead.
+
+    The lead is scored **after** the turn is recorded, and the escalation
+    decision is taken from that post-turn label, so a message that turns a
+    lead Hot escalates immediately (it used to use the pre-turn score).
+    A multi-intent query abstains via ``force_abstain`` on the *real* query.
+    """
+    from chatbot.responder import EscalationPolicy, decide_escalation, respond
+    backend = _backend_of(retriever)
+    gate = _gate_for(backend) if gate is None else float(gate)
+
+    # rule_score is a placeholder: the lead fields are recomputed below from
+    # the post-turn score, so respond() is only asked for answer/abstain.
+    out = respond(query, retriever, rule_score=0.0, ml_score=None,
+                  policy=EscalationPolicy(alpha=1.0, min_confidence=gate),
+                  top_k=3, force_abstain=_is_multi_intent(query))
     tracker.add_turn(query, out, datetime.now(timezone.utc))
+
+    scored = _score_turn(tracker)
+    escalate, priority = decide_escalation(scored["label"], out["abstained"])
+    out.update(lead_score=scored["hybrid"], lead_label=scored["label"],
+               rule_score=scored["rule"], ml_proba=scored["ml_proba"],
+               escalate=escalate, priority=priority,
+               retrieval_backend=backend, gate=gate)
     return out
+
+
+class _WatcherNoiseFilter(logging.Filter):
+    """Drop Streamlit's file-watcher probe errors for transformers / torch.
+
+    Once ``transformers`` is imported (SBERT), the watcher calls
+    ``hasattr(module, "__path__")`` on every entry of ``sys.modules``. Many of
+    transformers' lazy submodules import ``torchvision`` (not installed) and
+    raise ``ModuleNotFoundError`` instead of ``AttributeError``, so Streamlit
+    logged one ~20-line traceback per module (~400 of them, ~9,000 lines). The
+    errors are harmless; errors about any *other* module still pass through.
+    """
+
+    _PREFIXES = ("Examining the path of transformers.",
+                 "Examining the path of torch.")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not record.getMessage().startswith(self._PREFIXES)
+
+
+def _quiet_watcher_noise() -> None:
+    """Attach :class:`_WatcherNoiseFilter` to the watcher's logger (once)."""
+    lg = logging.getLogger("streamlit.watcher.local_sources_watcher")
+    if not any(isinstance(f, _WatcherNoiseFilter) for f in lg.filters):
+        lg.addFilter(_WatcherNoiseFilter())
+
+
+def _category_chart(st, counts: Dict[str, int]) -> None:
+    """Turns per category as a static horizontal bar chart.
+
+    ``st.bar_chart`` attaches zoom/pan *scale bindings*, which Vega-Lite rejects
+    on a categorical axis ("Scale bindings are currently only supported for
+    scales with unbinned, continuous domains") -- one browser-console warning
+    per render. A non-interactive Altair bar has no bindings and no warning.
+    """
+    try:
+        import altair as alt
+        import pandas as pd
+    except ImportError:
+        st.write(dict(counts))
+        return
+    df = pd.DataFrame({"category": list(counts), "turns": list(counts.values())})
+    chart = (alt.Chart(df).mark_bar()
+             .encode(x=alt.X("turns:Q", title="turns",
+                             axis=alt.Axis(tickMinStep=1)),
+                     y=alt.Y("category:N", sort="-x", title=None),
+                     tooltip=["category", "turns"])
+             # numeric height: a discrete height ({"step": n}) clashes with
+             # Streamlit's fit-y autosize ("Dropping fit-y ... discrete height")
+             .properties(width="container", height=max(90, 30 * len(counts))))
+    st.altair_chart(chart)
 
 
 def _closed_or_exported_at(entry: Dict[str, Any]) -> str:
@@ -419,12 +566,22 @@ def main() -> None:
     """Streamlit entrypoint (only call site that needs streamlit)."""
     st = _st()
 
+    _quiet_watcher_noise()
     st.set_page_config(page_title=PROJECT_TITLE, layout="wide")
     st.title(PROJECT_TITLE)
-    st.caption("Rule-only live scoring (provisional) + counsellor "
-               "escalation. Nothing is persisted to disk.")
+    st.caption("Provisional live scoring: a rule score over chat-observable "
+               "topics blended with an engagement-based ML score (trained on "
+               "synthetic sessions), plus counsellor escalation. "
+               "Nothing is persisted to disk.")
     _ensure_lead(st)
-    retriever = _get_retriever()
+    retriever = _cached_retriever(st)
+    backend = _backend_of(retriever)
+    gate = _gate_for(backend)
+    st.caption(f"Retrieval: {backend} · abstains below {gate:.2f}")
+    if backend != "sbert":
+        st.warning("Sentence-BERT could not start, so retrieval falls back to "
+                   "TF-IDF (weaker; see the evaluation). "
+                   "Install requirements-ml.txt for the evaluated retriever.")
 
     left, right = st.columns([3, 2])
 
@@ -438,8 +595,7 @@ def main() -> None:
             tracker = _get_tracker(st)
             with st.chat_message("user"):
                 st.markdown(prompt)
-            out = _answer_query(prompt, tracker, retriever)
-            scored = _score_turn(tracker)
+            out = _answer_query(prompt, tracker, retriever, gate=gate)
             st.session_state.turns_log.append({
                 "user_msg": prompt, "category": out.get("category"),
                 "confidence": float(out.get("confidence", 0.0) or 0.0),
@@ -448,13 +604,20 @@ def main() -> None:
                 # on-screen rendering format changes.
                 "assistant_text": str(out.get("answer", "")),
                 "ts": datetime.now(timezone.utc).isoformat(),
+                # routing decision, so exports show what the system did
+                "escalate": bool(out["escalate"]),
+                "priority": out["priority"],
+                "lead_label": out["lead_label"],
+                "lead_score": round(float(out["lead_score"]), 4),
+                "retrieval_backend": out["retrieval_backend"],
             })
             st.session_state.chat += [
                 {"role": "user", "text": prompt},
                 {"role": "assistant",
                  "text": f"{out['answer']}\n\n_{out.get('category','')} · "
                          f"confidence {out.get('confidence', 0.0):.2f} · "
-                         f"lead {scored['label']} ({scored['hybrid']:.2f})_"},
+                         f"lead {out['lead_label']} ({out['lead_score']:.2f})"
+                         f"{' · escalated' if out['escalate'] else ''}_"},
             ]
             st.session_state.turns_since_new += 1
             st.rerun()
@@ -484,42 +647,41 @@ def main() -> None:
                      f"ML: **{ml[2]:.3f}** (Hot) · "
                      f"{ml[1]:.3f} (Warm) · {ml[0]:.3f} (Cold) · "
                      f"alpha: **{scored['alpha']:.2f}**")
+            from leads.hybrid import active_model_info
+            info = active_model_info()
+            st.caption(f"ML model: {info.get('file')} — "
+                       f"{info.get('description') or 'engagement-based, provisional'}")
         else:
             st.write(f"Rule score: **{scored['rule']:.3f}** · "
                      f"ML: **model not loaded** · alpha: **{scored['alpha']:.2f}**")
         from chatbot.responder import EscalationPolicy
         hot_at = EscalationPolicy().hot_threshold
-        st.write("Escalation: on low retrieval confidence OR Hot lead "
+        st.write(f"Escalation: on retrieval confidence < {gate:.2f} OR Hot lead "
                  f"(score >= {hot_at:.2f})")
         st.write("Visa intent: "
                  f"**{'yes' if flags.get('visa_intent_mentioned') else 'no'}**"
                  " · Funding interest: "
                  f"**{'yes' if flags.get('funding_method_present') else 'no'}**")
         if counts:
-            try:
-                import pandas as pd
-                st.bar_chart(pd.DataFrame(
-                    {"turns": list(counts.values())},
-                    index=list(counts.keys())))
-            except ImportError:
-                st.write(dict(counts))
+            _category_chart(st, counts)
         else:
             st.write("No turns yet — the category distribution appears "
                      "after the first message.")
-        from leads.rubric import score_row
+        from chatbot.session_features import live_rule_breakdown
         if not is_empty:
-            contribs = score_row(
-                {k: v for k, v in resp.items() if k != "session_flags"}
-            ).contributions
-            top = sorted(contribs, key=lambda c: -abs(c["contribution"]))[:5]
-            st.write("Top rubric contributions:")
-            for c in top:
+            bd = live_rule_breakdown(resp)
+            st.write("Rule score = sum of contributions ÷ observable weight "
+                     "(chat-observable components only):")
+            for c in sorted(bd["lines"], key=lambda c: -c["contribution"]):
+                detail = f" ({c['detail']})" if c.get("detail") else ""
                 st.write(f"- {c['feature']}: {c['contribution']:+.3f} "
-                         f"({c.get('detail', '')})")
+                         f"of {c['weight']:.3f}{detail}")
+            st.write(f"**= {bd['raw']:.3f} ÷ {bd['mass']:.3f} = "
+                     f"{bd['score']:.3f}**")
         st.divider()
         st.subheader("Download this chat")
-        st.caption("Dissertation evidence: transcript + scores for the "
-                   "active lead (updates after every message).")
+        st.caption("Dissertation evidence: transcript + scores + routing "
+                   "decision for the active lead (updates after every message).")
         live_entry = build_live_entry(st, tracker=tracker, scored=scored)
         _download_row(st, live_entry, key_prefix="live")
 

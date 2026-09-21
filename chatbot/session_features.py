@@ -10,20 +10,32 @@ fields (``has_english_test``, ``has_course``, ...) from *which FAQ
 categories the visitor asked about*. Topic interest is NOT the same thing
 as holding the document: asking about IELTS does not mean the visitor has
 an IELTS certificate, and asking about fees does not mean funding is
-clear. Anything unseen defaults to the "unknown/none" bucket, never to a
-positive. Demo/testing convenience only; cannot replace counsellor-form
-extraction (``leads.features``). Scores from here are rule-only /
-provisional by definition.
+clear. Demo/testing convenience only; cannot replace counsellor-form
+extraction (``leads.features``). Scores from here are provisional.
 
- COUNSELLOR-ONLY FEATURES (deliberately absent from rubric_evidence):
- note_completeness and study_gap are form-extraction features -- the
- former scores how fully a counsellor filled the assessment notes, the
- latter whether a gap was recorded on the form. A live chat has neither
- a form nor a counsellor, so this module does not invent values for them:
- note_completeness keeps its score_row default, and
- ``study_gap_mentioned`` is emitted only once the visitor has actually
- sent a turn. An empty session has no gap evidence either way, so it must
- not collect the rubric's "no gap" credit before the first message.
+Unobservable fields stay UNKNOWN, never negative
+------------------------------------------------
+A chat cannot observe passport status, destination, qualification level,
+funding clarity, previous applications, study gap or the counsellor's notes.
+``rubric_evidence`` therefore does **not emit them at all** (an earlier
+version defaulted passport to "none", which silently forfeited 30% of the
+rubric and made "Hot" unreachable). Two consequences, both deliberate:
+
+* **Rule score** = the rubric score over the components a chat can observe
+  (``LIVE_OBSERVABLE``: course, intake, English), renormalised to [0, 1].
+  The full-form score can only be reached with a counsellor form; a live chat
+  that has raised every observable topic scores 0.78, so all three labels are
+  reachable (see ``tests/test_live_path.py``).
+* **ML input**: any field the chat did not supply is imputed by
+  ``leads.hybrid.preprocess_for_prediction`` from the training table shipped
+  in ``artifacts/config.json`` (median / mode), so "unknown" means "typical".
+
+COUNSELLOR-ONLY FEATURES (deliberately absent from rubric_evidence):
+``note_word_count`` / note completeness and ``study_gap_mentioned`` are
+form-extraction features -- how fully a counsellor filled the assessment notes
+and whether a gap was recorded on the form. A live chat has neither a form nor
+a counsellor, so nothing is invented for them (the visitor's own word count is
+reported separately as the engagement feature ``session_word_count``).
 """
 from __future__ import annotations
 
@@ -32,8 +44,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from leads.features import FUNDING_UNKNOWN, PASSPORT_NONE
-from leads.hybrid import hybrid_score
+from leads.hybrid import DEFAULT_ALPHA, hybrid_score
 from leads.rubric import score_row
 
 #: Categories the live classifier/responder may emit. Anything outside this
@@ -50,6 +61,10 @@ KNOWN_CATEGORIES = (
     "General Enquiries",
 )
 
+#: Rubric components (``score_row`` contribution names) a live chat can
+#: observe through the topic proxy. The rule score is computed over these only.
+LIVE_OBSERVABLE = ("has_course", "has_intake", "english_test")
+
 
 def _normalise_category(raw: Any) -> str:
     name = str(raw or "General Enquiries")
@@ -57,41 +72,69 @@ def _normalise_category(raw: Any) -> str:
 
 
 def category_entropy(categories: List[str]) -> float:
-    """Shannon entropy (nats) of the category distribution."""
+    """Shannon entropy in **bits** (log2) of the category distribution.
+
+    Bits, because the synthetic training sessions
+    (``leads.personas._category_entropy``) use log2; the ML model was fitted on
+    that scale (a nats value would be ~30% too small).
+    """
     counts = Counter(_normalise_category(c) for c in categories)
     total = sum(counts.values())
     if total == 0:
         return 0.0
-    return round(-sum((n / total) * math.log(n / total)
+    return round(-sum((n / total) * math.log2(n / total)
                       for n in counts.values()), 4)
 
 
 def empty_evidence() -> Dict[str, Any]:
-    """Baseline evidence row: every signal unknown/absent, never positive."""
+    """Baseline evidence row: only what a chat can observe, all absent."""
     return {
-        "passport_status": PASSPORT_NONE,
         "has_english_test": 0,
         "english_band": 0.0,
         "funding_method_present": 0,
-        "funding_clarity": FUNDING_UNKNOWN,
-        "destination_uk": 0,
         "has_course": 0,
         "has_intake": 0,
-        "qual_level": 0,
-        "study_gap_mentioned": 0,
-        "previous_application_mentioned": 0,
-        "note_word_count": 0,
     }
 
 
+def live_rule_breakdown(evidence: Dict[str, Any]) -> Dict[str, Any]:
+    """The arithmetic behind the live rule score.
+
+    ``lines`` are the ``LIVE_OBSERVABLE`` rubric components (feature,
+    contribution, weight); ``raw`` is their summed contribution, ``mass`` their
+    summed weight, and ``score = raw / mass``. The dashboard panel and
+    :func:`rule_score_from_evidence` both come from here, so what is shown
+    always adds up to the score beside it (contributions of 0.050 + 0.040 + 0.000
+    = 0.090 over a mass of 0.180 is 0.500, not 0.090).
+    """
+    lines = []
+    got = mass = 0.0
+    for c in score_row(dict(evidence)).contributions:
+        if c["feature"] in LIVE_OBSERVABLE:
+            lines.append({"feature": c["feature"],
+                          "contribution": float(c["contribution"]),
+                          "weight": float(c["weight"]),
+                          "detail": c.get("detail")})
+            got += float(c["contribution"])
+            mass += float(c["weight"])
+    return {"lines": lines, "raw": got, "mass": mass,
+            "score": float(got / mass) if mass else 0.0}
+
+
 def rule_score_from_evidence(evidence: Dict[str, Any]) -> float:
-    """Rule score in [0, 1] for an evidence row via ``leads.rubric``."""
-    return float(score_row(dict(evidence)).score)
+    """Rule score in [0, 1]: the rubric over ``LIVE_OBSERVABLE``, renormalised.
+
+    ``score_row`` weights the full counsellor form; dividing by the weight mass
+    of the components a chat can observe keeps the score on the same [0, 1]
+    scale the label cuts assume (unobserved components are excluded, not
+    scored as zero). See :func:`live_rule_breakdown`.
+    """
+    return live_rule_breakdown(evidence)["score"]
 
 
 def hybrid_for_session(rule: float, ml_proba=None,
-                       alpha: float = 0.5) -> float:
-    """Hybrid score; rule-only when ``ml_proba`` is None (dashboard default)."""
+                       alpha: float = DEFAULT_ALPHA) -> float:
+    """Hybrid score; rule-only when ``ml_proba`` is None."""
     return float(hybrid_score(rule, ml_proba, alpha=alpha))
 
 
@@ -117,7 +160,13 @@ class SessionTracker:
         })
 
     def features(self) -> Dict[str, Any]:
-        """Engagement metrics for the session so far."""
+        """Engagement metrics for the session so far.
+
+        ``avg_delay_s`` is ``None`` until two turns exist: with fewer there is
+        no delay to observe, and ``0.0`` would read as "instant replies" (below
+        every synthetic training range). ``leads.hybrid`` imputes ``None`` with
+        the training median.
+        """
         n = len(self._turns)
         words = sum(len(t["user_msg"].split()) for t in self._turns)
         delays: List[float] = []
@@ -126,13 +175,16 @@ class SessionTracker:
                 delays.append(max(0.0, (cur["ts"] - prev["ts"]).total_seconds()))
             except (TypeError, AttributeError):
                 continue
-        avg_delay = round(sum(delays) / len(delays), 2) if delays else 0.0
+        avg_delay: Optional[float] = (
+            round(sum(delays) / len(delays), 2) if delays else None)
+        visa = any(t["category"] == "Visa & Immigration" for t in self._turns)
         return {
             "message_count": n,
             "avg_delay_s": avg_delay,
             "session_word_count": words,
             "question_category_entropy": category_entropy(
                 [t["category"] for t in self._turns]),
+            "visa_intent_mentioned": 1 if visa else 0,
             # In-session view only; cross-session identity is not tracked.
             "returning_session": 0,
         }
@@ -145,22 +197,19 @@ class SessionTracker:
         return counts
 
     def rubric_evidence(self) -> Dict[str, Any]:
-        """Map seen categories onto rubric fields; unseen stays non-positive.
+        """Map seen categories onto the rubric fields a chat can observe.
 
         Proxy mapping (see module docstring -- demo approximation):
-          Visa & Immigration -> ``visa_intent_mentioned=True`` (session flag)
-          Fees & Funding / Scholarships -> ``funding_method_present=True``
-            (clarity stays UNKNOWN; interest is not proof of funds)
+          Visa & Immigration -> ``session_flags.visa_intent_mentioned``
+          Fees & Funding / Scholarships -> ``funding_method_present=1``
+            (interest is not proof of funds; funding *clarity* is not emitted)
           English Language -> ``has_english_test=1`` (proxy for readiness;
             band stays 0.0 = present but unparsed)
-          Entry Requirements -> ``has_course=True``
-          Application Process -> ``has_intake=True``
-        ``destination_uk`` stays 0 (topic interest does not establish
-        destination). Passport/qualifications are unobservable in chat and
-        stay at their unknown defaults. ``study_gap_mentioned`` is emitted as
-        0 ("no gap recorded") only once at least one turn exists; an empty
-        session omits the key so a silent lead cannot collect the rubric's
-        "no gap" credit.
+          Entry Requirements -> ``has_course=1``
+          Application Process -> ``has_intake=1``
+        Passport, destination, qualification, previous applications, funding
+        clarity, study gap and note length are unobservable in chat and are
+        **absent** from the row (unknown, not negative).
         """
         ev = empty_evidence()
         seen = set(self.category_counts())
@@ -177,13 +226,7 @@ class SessionTracker:
             ev["has_course"] = 1
         if "Application Process" in seen:
             ev["has_intake"] = 1
-        ev["note_word_count"] = sum(len(t["user_msg"].split())
-                                    for t in self._turns)
         out = dict(ev)
-        if not self._turns:
-            # Silent lead: no gap evidence either way. Omitting the key keeps
-            # the rubric's "no gap" credit out of an untouched session.
-            out.pop("study_gap_mentioned", None)
         out["session_flags"] = flags
         return out
 
@@ -191,13 +234,13 @@ class SessionTracker:
         """Rule score in [0, 1] for the current evidence.
 
         An empty session scores 0.0: with no turns there is no evidence,
-        so no rubric credit (including the "no gap" credit) applies.
+        so no rubric credit applies.
         """
         if not self._turns:
             return 0.0
         return rule_score_from_evidence(self.rubric_evidence())
 
-    def hybrid(self, ml_proba=None, alpha: float = 0.5) -> float:
+    def hybrid(self, ml_proba=None, alpha: float = DEFAULT_ALPHA) -> float:
         """Hybrid score; rule-only unless ``ml_proba`` is supplied.
 
         Empty sessions score 0.0 regardless of any supplied proba: there

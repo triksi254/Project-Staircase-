@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from chatbot.retriever import KEYWORD_BONUS
 from evaluation.retrieval_eval import evaluate, load_gold
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +34,9 @@ DEFAULT_BATCH_B = PROJECT_ROOT / "evaluation" / "gold_queries_b.json"
 DEFAULT_OUT = PROJECT_ROOT / "artifacts" / "adaptation_results.json"
 
 WITHHOLD_FRAC = 0.30
-DEFAULT_THRESHOLD = 0.60
+from chatbot.responder import EVALUATED_GATE  # noqa: E402  (single definition)
+
+DEFAULT_THRESHOLD = EVALUATED_GATE
 TOP_K = 5
 RANK_FAIL = 3  # a query counts as a gap when its gold rank exceeds this
 
@@ -194,17 +197,22 @@ def run_adaptation_experiment(
     reduced_retriever = _make_retriever(reduced)
     probe = evaluate(reduced_retriever, batch_a, threshold=threshold)
     b_queries = {g["query"] for g in batch_b}
-    probe_rows = [r for r in probe["per_query"]
-                  if r["gold_id"] is not None
-                  and (r["rank"] is None or r["rank"] > RANK_FAIL
-                       or r["top1_score"] < threshold)]
+    # A "gap" is a *retrieval* failure: the gold entry is unretrievable or ranks
+    # below RANK_FAIL. Whether the top-1 score clears the abstention gate is a
+    # calibration question, reported separately (``n_below_gate``) but NOT
+    # counted as a gap: including it made every probe query a "failure" at
+    # TF-IDF@0.60, so every category looked under-served and "targeted"
+    # restoration degenerated to full restoration.
+    answerable_probe = [r for r in probe["per_query"] if r["gold_id"] is not None]
+    probe_rows = [r for r in answerable_probe
+                  if r["rank"] is None or r["rank"] > RANK_FAIL]
+    n_below_gate = sum(1 for r in answerable_probe if r["top1_score"] < threshold)
     batch_a_failures = [
         {"query": r["query"], "gold_id": r["gold_id"], "category": r["category"],
          "rank": r["rank"], "top1_score": r["top1_score"],
          "predicted_abstain": r["predicted_abstain"],
          "reason": ("unretrievable" if r["rank"] is None
-                    else "rank>%d" % RANK_FAIL if r["rank"] > RANK_FAIL
-                    else "below_gate")}
+                    else "rank>%d" % RANK_FAIL)}
         for r in probe_rows
     ]
     # Batch B must not leak into Stage 3's probe.
@@ -285,12 +293,17 @@ def run_adaptation_experiment(
                    "batch_b": str(batch_b_path or DEFAULT_BATCH_B),
                    "threshold": threshold, "seed": seed,
                    "n_bootstrap": n_bootstrap, "withhold_frac": WITHHOLD_FRAC,
-                   "rank_fail": RANK_FAIL, "top_k": TOP_K},
+                   "rank_fail": RANK_FAIL, "top_k": TOP_K,
+                   "keyword_bonus": KEYWORD_BONUS,
+                   "gap_definition": "gold entry unretrievable or ranked > rank_fail "
+                                     "(the abstention gate is reported separately "
+                                     "as n_below_gate, not counted)"},
         "stage1_full": stage1["summary"],
         "stage2_cold_start": stage2["summary"],
         "stage3_probe": {"n_probe_queries": len([g for g in batch_a
                                                  if g["gold_id"] is not None]),
-                         "n_failures": len(batch_a_failures)},
+                         "n_failures": len(batch_a_failures),
+                         "n_below_gate": n_below_gate},
         "stage4_full_restore": stage4["summary"],
         "stage4b_targeted_restore": stage4b["summary"],
         "n_entries_full": stage1["n_corpus_entries"],
@@ -409,34 +422,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-def _make_retriever(entries):
-    """Build a Retriever over ``entries`` with on-disk persistence disabled."""
-    from chatbot.retriever import Retriever
-
-    class _QuietRetriever(Retriever):
-        def _persist(self) -> None:  # noqa: D401 - intentionally a no-op
-            return None
-
-    return _QuietRetriever(entries)
-
-
-def _sha256(path) -> Optional[str]:
-    """Hash a file's bytes, or None when it does not exist."""
-    fp = Path(path)
-    if not fp.is_file():
-        return None
-    digest = hashlib.sha256()
-    with open(fp, "rb") as fh:
-        for block in iter(lambda: fh.read(65536), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def snapshot_integrity(corpus_path) -> Dict[str, Optional[str]]:
-    """Hash the corpus and every retrieval cache."""
-    out = {"corpus": _sha256(corpus_path)}
-    for name, path in zip(("vectorizer_cache", "matrix_cache"), CACHE_PATHS):
-        out[name] = _sha256(path)
-    return out

@@ -1,9 +1,15 @@
 """TF-IDF + keyword retrieval over the grounded FAQ corpus.
 
-Corpus entries carry only question / answer / keywords (no category or
-institution fields), so topic signals come from the text itself. Uses
-sklearn TfidfVectorizer when available, else a pure-stdlib token-overlap
-fallback. Never raises on missing corpus: returns [] hits instead.
+Entries carry question / answer / keywords plus a ``category`` and an
+``institution`` (added by ``scripts/enrich_corpus.py``). Uses sklearn
+TfidfVectorizer when available, else a pure-stdlib token-overlap fallback.
+Never raises on missing corpus: returns [] hits instead.
+
+The score ``search`` returns is **not a pure cosine**: rank is decided by the
+raw TF-IDF cosine, and the reported score is that cosine plus
+``KEYWORD_BONUS`` for every corpus keyword that appears in the query (capped
+at 1.0). The abstention gate compares this boosted score; H1 is stated on the
+raw cosine (``evaluation.retrieval_eval`` reports both).
 """
 from __future__ import annotations
 
@@ -19,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CORPUS = PROJECT_ROOT / "data" / "faq_corpus.json"
+
+#: Score added per corpus keyword found in the query (after ranking by cosine).
+KEYWORD_BONUS = 0.10
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 _STOP = frozenset({"the", "a", "an", "and", "or", "of", "to", "in", "for",
@@ -79,16 +88,26 @@ def load_corpus(path=None) -> List[FaqEntry]:
 class Retriever:
     """Rank corpus entries for a query. ``search`` returns (entry, score)."""
 
-    def __init__(self, entries: List[FaqEntry]) -> None:
+    #: Backend id used by the dashboard / transcripts to pick the abstention gate.
+    backend = "tfidf"
+
+    def __init__(self, entries: List[FaqEntry], persist: bool = False) -> None:
+        """``persist=True`` also writes ``data/tfidf_*`` (inspection only).
+
+        Off by default: the files were rewritten on *every* construction,
+        clobbering the shared cache with whatever corpus a caller (or a test)
+        happened to build, and nothing ever read them back.
+        """
         self.entries = list(entries)
         self._vectorizer: Any = None
         self._matrix: Any = None
         self._fit_count = 0
+        self._persist_enabled = bool(persist)
         if self.entries:
             self._build_index()
 
     def _persist(self) -> None:
-        """Cache vectorizer + matrix so re-init loads instead of refits."""
+        """Write vectorizer + matrix to ``data/`` (opt-in, inspection only)."""
         try:
             import pickle
             cache = PROJECT_ROOT / "data" / "tfidf_vectorizer.pkl"
@@ -116,7 +135,8 @@ class Retriever:
                                                token_pattern=None)
             self._matrix = self._vectorizer.fit_transform(docs)
             self._fit_count = 1
-            self._persist()
+            if self._persist_enabled:
+                self._persist()
         except ValueError as exc:
             logger.warning("retriever: TF-IDF build failed (%s) — fallback", exc)
             self._vectorizer, self._matrix = None, None
@@ -150,7 +170,7 @@ class Retriever:
         out = []
         for i in order:
             s = round(float(max(0.0, min(1.0, sims[i]))), 4)
-            bonus = sum(0.10 for k in self.entries[i].keywords
+            bonus = sum(KEYWORD_BONUS for k in self.entries[i].keywords
                         if k.lower() in query.lower())
             out.append((self.entries[i], round(min(1.0, s + bonus), 4)))
         return out

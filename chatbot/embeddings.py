@@ -57,6 +57,9 @@ def corpus_fingerprint(entries, model_name: str = DEFAULT_MODEL) -> str:
 class SbertRetriever:
     """Rank corpus entries by Sentence-BERT cosine. ``search`` returns (entry, score)."""
 
+    #: Backend id used by the dashboard / transcripts to pick the abstention gate.
+    backend = "sbert"
+
     def __init__(self, entries, model_name: str = DEFAULT_MODEL,
                  device: str = "cpu", cache: bool = True,
                  batch_size: int = 32, cache_dir=None) -> None:
@@ -84,7 +87,16 @@ class SbertRetriever:
             raise ImportError(
                 "SbertRetriever requires sentence-transformers and torch. "
                 "Install with: pip install -r requirements-ml.txt") from exc
-        return SentenceTransformer(self.model_name, device=self.device)
+        # Prefer the local HuggingFace cache: no hub request (so no "unauthenticated
+        # requests to the HF Hub" warning on every start, and no network latency).
+        # Only when the model is not cached yet do we fall back to downloading it.
+        try:
+            return SentenceTransformer(self.model_name, device=self.device,
+                                       local_files_only=True)
+        except (OSError, ValueError):
+            logger.info("embeddings: %s not in the local cache - downloading",
+                        self.model_name)
+            return SentenceTransformer(self.model_name, device=self.device)
 
     @property
     def fingerprint(self) -> str:

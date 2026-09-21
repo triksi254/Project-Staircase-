@@ -42,17 +42,11 @@ def _parse_ml_proba(raw: Optional[str]) -> Optional[List[float]]:
 
 
 def _default_alpha() -> float:
-    import logging
+    """Alpha from ``artifacts/config.json`` (falls back to ``DEFAULT_ALPHA``)."""
     try:
-        from leads.hybrid import load_artifacts
-        logging.disable(logging.CRITICAL)
-        try:
-            arts = load_artifacts()
-        finally:
-            logging.disable(logging.NOTSET)
-        cfg = arts.get("config") or {}
-        alpha = cfg.get("alpha", 0.5)
-        return float(alpha)
+        from leads.hybrid import DEFAULT_ALPHA, get_default_alpha, load_config_json
+        cfg = load_config_json()
+        return float(get_default_alpha({"config": cfg})) if cfg else DEFAULT_ALPHA
     except Exception:
         return 0.5
 
@@ -156,7 +150,7 @@ def main(argv=None) -> int:
     ap.add_argument("--k", type=int, default=3)
     ap.add_argument("--min-confidence", type=float, default=None,
                     help="retrieval-confidence gate for abstention "
-                         "(default: EscalationPolicy.min_confidence = 0.15)")
+                         "(default: chatbot.responder.DEFAULT_MIN_CONFIDENCE)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     if not 0.0 <= args.rule <= 1.0:

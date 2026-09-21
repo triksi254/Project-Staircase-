@@ -8,10 +8,12 @@ itself is confident.
 
 Two signals are deliberately separate and must not be conflated:
 
-* ``confidence`` is the **retrieval** score: the top-1 similarity returned
-  by ``Retriever.search`` (TF-IDF cosine in [0, 1]). It is compared against
-  ``EscalationPolicy.min_confidence`` on every path, including when a top-1
-  hit exists, and drives abstention vs grounded answer.
+* ``confidence`` is the **retrieval** score: the top-1 score returned by
+  ``search``. For the TF-IDF ``Retriever`` that is the raw cosine *plus* a
+  ``KEYWORD_BONUS`` per matched corpus keyword (not a pure cosine); for the
+  Sentence-BERT retriever it is the raw cosine. It is compared against
+  ``EscalationPolicy.min_confidence`` on every path and drives abstention vs
+  grounded answer.
 * ``lead_score`` / ``lead_label`` is the **lead** score: ``hybrid_score``
   of the rule and ML components, mapped to Cold/Warm/Hot by
   ``score_to_label``. It drives counsellor escalation, not abstention.
@@ -24,34 +26,85 @@ quality only -- it is *not* a threshold on the lead score.
 Retrieval is deliberately corpus-wide: ``respond`` never pre-filters or
 re-ranks the retriever by institution, so the top-1 hit can come from any
 corpus entry (a query naming a university does not scope the search) and the
-``min_confidence`` gate stays the only answer/abstain decision.
+``min_confidence`` gate stays the only answer/abstain decision. A caller that
+knows a query must not be answered (the dashboard's multi-intent guard) passes
+``force_abstain=True`` instead of substituting a different query.
 
-Hot classification is delegated to ``score_to_label`` (tertile cut, i.e.
-``lead_score >= 2/3``). ``EscalationPolicy.hot_threshold`` is kept for
-callers, serialisation, and display; to avoid silent divergence it must
-equal that tertile cut. ``respond`` reads ``min_confidence`` and ``alpha``
-from the policy but derives Hot/Warm/Cold from ``score_to_label``.
+Hot classification is delegated to ``score_to_label`` (tertile cut,
+``leads.hybrid.WARM_HOT_CUT``). ``EscalationPolicy.hot_threshold`` is that same
+constant, kept for callers, serialisation and display; a test pins the
+equality so the two cannot drift.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from chatbot.retriever import FaqEntry, Retriever
-from leads.hybrid import hybrid_score, score_to_label
+from leads.hybrid import (
+    DEFAULT_ALPHA,
+    WARM_HOT_CUT,
+    hybrid_score,
+    score_to_label,
+)
+
+_LOG = logging.getLogger(__name__)
 
 ABSTAIN_MESSAGE = (
     "I don't have a verified answer for that yet. "
     "I've flagged your question for a counsellor who will follow up."
 )
 
+#: Gate of the TF-IDF demo / CLI default (``chatbot.demo``): permissive, so the
+#: keyword-boosted TF-IDF score can clear it.
+DEFAULT_MIN_CONFIDENCE = 0.15
+
+#: Operating point evaluated in ``evaluation/`` (H1 study) and used by the
+#: dashboard with Sentence-BERT. It is meaningful on the SBERT scale (raw
+#: cosine). Applied to TF-IDF scores it withholds 90-100% of answerable gold
+#: queries (``artifacts/compare_gold_*.json``), so a TF-IDF fallback uses
+#: ``DEFAULT_MIN_CONFIDENCE`` instead. One definition; ``retrieval_eval`` and
+#: ``adaptation_loop`` import it.
+EVALUATED_GATE = 0.60
+
 
 @dataclass
 class EscalationPolicy:
     """Thresholds for abstention and counsellor handoff."""
-    min_confidence: float = 0.15
-    hot_threshold: float = 2.0 / 3.0
-    alpha: float = 0.5
+    min_confidence: float = DEFAULT_MIN_CONFIDENCE
+    hot_threshold: float = WARM_HOT_CUT
+    alpha: float = DEFAULT_ALPHA
+
+
+def decide_escalation(label: str, abstained: bool) -> Tuple[bool, str]:
+    """``(escalate, priority)``: Hot always escalates; abstentions escalate."""
+    escalate = bool(abstained) or label == "Hot"
+    priority = "high" if label == "Hot" else ("normal" if escalate else "none")
+    return escalate, priority
+
+
+def escalation_reasons(*, force_abstain: bool, has_hits: bool, confidence: float,
+                        min_confidence: float, label: str) -> List[str]:
+    """Every condition that makes ``respond`` abstain or escalate (``["none"]`` if
+    there is none). Pure; used for the debug line, not for the decision itself.
+
+    * ``multi_intent_guard`` -- the caller forced an abstention (``force_abstain``),
+      whatever the retrieval score;
+    * ``no_retrieval_hits`` -- the retriever returned nothing;
+    * ``low_confidence`` -- top-1 score < ``min_confidence``;
+    * ``hot_lead`` -- the lead label is Hot (escalates even when answering).
+    """
+    reasons: List[str] = []
+    if force_abstain:
+        reasons.append("multi_intent_guard")
+    if not has_hits:
+        reasons.append("no_retrieval_hits")
+    elif confidence < min_confidence:
+        reasons.append("low_confidence")
+    if label == "Hot":
+        reasons.append("hot_lead")
+    return reasons or ["none"]
 
 
 def respond(
@@ -61,14 +114,17 @@ def respond(
     ml_score: Optional[float] = None,
     policy: Optional[EscalationPolicy] = None,
     top_k: int = 3,
+    force_abstain: bool = False,
 ) -> Dict[str, Any]:
     """Answer ``query``; return dict with answer + routing signals.
 
     Retrieval is corpus-wide: ``retriever.search`` ranks the **full** corpus
     (no institution scoping/filtering before ranking) and the resulting top-1
-    similarity is then gated by ``min_confidence``. A query therefore either
-    gets the grounded top-1 FAQ with its question cited, or abstains +
-    escalates; naming a university in the query does not change the ranking.
+    score is then gated by ``min_confidence``. A query therefore either gets
+    the grounded top-1 FAQ with its question cited, or abstains + escalates;
+    naming a university in the query does not change the ranking.
+    ``force_abstain`` abstains regardless of the score (the retrieval result is
+    still reported so the decision is auditable).
     """
     pol = policy or EscalationPolicy()
     lead = hybrid_score(rule_score, ml_score, alpha=pol.alpha)
@@ -77,11 +133,20 @@ def respond(
     hits = retriever.search(query, top_k=top_k)
     confidence = hits[0][1] if hits else 0.0
 
-    # Escalation aligns exactly with score_to_label: Hot <=> lead >= 2/3.
-    escalate = ((not hits) or (confidence < pol.min_confidence)
-                or (label == "Hot"))
-    priority = "high" if label == "Hot" else ("normal" if escalate else "none")
-    if not hits or confidence < pol.min_confidence:
+    abstained = bool(force_abstain) or (not hits) or (confidence < pol.min_confidence)
+    escalate, priority = decide_escalation(label, abstained)
+    # ``top1_score`` is the exact value compared with ``min_confidence``;
+    # ``multi_intent_flag`` is ``force_abstain`` (how the dashboard's multi-intent
+    # guard signals it). Enable with logging.getLogger("chatbot.responder").
+    _LOG.debug(
+        "respond: query=%r top1_score=%r min_confidence=%r multi_intent_flag=%s "
+        "escalation_reason=%s",
+        query, confidence, pol.min_confidence, bool(force_abstain),
+        "+".join(escalation_reasons(
+            force_abstain=bool(force_abstain), has_hits=bool(hits),
+            confidence=confidence, min_confidence=pol.min_confidence,
+            label=label)))
+    if abstained:
         answer = ABSTAIN_MESSAGE
         cited: Optional[str] = None
         category: Optional[str] = None
@@ -106,6 +171,7 @@ def respond(
         "lead_label": label,
         "escalate": escalate,
         "priority": priority,
+        "abstained": abstained,
         "candidates": [{"question": e.question, "score": s,
                         "category": e.category,
                         "institution": e.institution} for e, s in hits],

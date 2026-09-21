@@ -66,3 +66,40 @@ def test_real_corpus_fingerprint_is_content_hash():
     assert len(fp) == 16 and fp.isalnum()
     # stable across reloads of the same corpus
     assert corpus_fingerprint(load_corpus()) == fp
+
+# --------------------------------------------------------------------------- #
+# model loading prefers the local HF cache (no hub request / auth warning)
+# --------------------------------------------------------------------------- #
+def _bare_retriever():
+    from chatbot.embeddings import SbertRetriever
+    r = SbertRetriever.__new__(SbertRetriever)
+    r.model_name, r.device = "all-MiniLM-L6-v2", "cpu"
+    return r
+
+
+def test_model_is_loaded_from_the_local_cache_first(monkeypatch):
+    import sentence_transformers
+    calls = []
+
+    class _Model:
+        def __init__(self, name, device="cpu", **kw):
+            calls.append(kw)
+
+    monkeypatch.setattr(sentence_transformers, "SentenceTransformer", _Model)
+    _bare_retriever()._load_model()
+    assert calls == [{"local_files_only": True}]
+
+
+def test_model_falls_back_to_the_network_when_not_cached(monkeypatch):
+    import sentence_transformers
+    calls = []
+
+    class _Model:
+        def __init__(self, name, device="cpu", **kw):
+            calls.append(kw)
+            if kw.get("local_files_only"):
+                raise OSError("not in the local cache")
+
+    monkeypatch.setattr(sentence_transformers, "SentenceTransformer", _Model)
+    _bare_retriever()._load_model()
+    assert calls == [{"local_files_only": True}, {}]

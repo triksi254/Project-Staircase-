@@ -19,13 +19,17 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from chatbot.retriever import KEYWORD_BONUS
 from evaluation.adaptation_loop import paired_bootstrap
-from evaluation.retrieval_eval import (DEFAULT_GOLD, SWEEP_THRESHOLDS, TOP_K,
+from evaluation.retrieval_eval import (DEFAULT_GOLD, DEFAULT_THRESHOLD,
+                                       SWEEP_THRESHOLDS, TOP_K,
                                        assert_index_contract, build_retriever,
                                        evaluate, load_gold, threshold_sweep)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 KINDS = ("tfidf", "sbert")
+#: H1's criterion is "> 0.80"; 0.60 is reported alongside as the gate scale.
+H1_COSINE_CUTS = (0.80, 0.60)
 
 
 def _rank_key(row) -> float:
@@ -79,7 +83,9 @@ def compare_retrievers(gold_path=None, top_k: int = TOP_K,
     for kind in KINDS:
         retriever = build_retriever(kind)
         assert_index_contract(retriever)
-        metrics = evaluate(retriever, gold, threshold=thresholds[-1],
+        # Headline metrics are at the documented gate, not at whatever the
+        # last sweep value happens to be (it used to be thresholds[-1] = 0.7).
+        metrics = evaluate(retriever, gold, threshold=DEFAULT_THRESHOLD,
                            top_k=top_k)
         per_kind[kind] = {
             "metrics": metrics,
@@ -100,6 +106,16 @@ def compare_retrievers(gold_path=None, top_k: int = TOP_K,
                                             n_bootstrap=n_bootstrap, seed=seed)
 
     detail = _paired_detail(rows_a, rows_b)
+    def _h1(kind):
+        """Share of answerable queries whose *raw* top-1 cosine clears each cut."""
+        cos = [r["raw_cosine"] for r in per_kind[kind]["metrics"]["per_query"]
+               if r["gold_id"] is not None and r["raw_cosine"] is not None]
+        n = len(cos)
+        return {"n_answerable": n,
+                **{"share_raw_cosine_gt_%.2f" % c:
+                   round(sum(1 for v in cos if v > c) / n, 4) if n else None
+                   for c in H1_COSINE_CUTS}}
+
     summary = {}
     for kind in KINDS:
         m = per_kind[kind]["metrics"]
@@ -111,6 +127,7 @@ def compare_retrievers(gold_path=None, top_k: int = TOP_K,
             "mean_raw_cosine_answerable": m["mean_raw_cosine_answerable"],
             "mean_top1_score_answerable": m["mean_top1_score_answerable"],
             "false_abstention_rate": m["false_abstention_rate"],
+            "h1": _h1(kind),
         }
     delta = {k: round(summary["sbert"][k] - summary["tfidf"][k], 4)
              for k in ("rank_1_accuracy", "mrr", "recall_at_3", "recall_at_5",
@@ -120,6 +137,11 @@ def compare_retrievers(gold_path=None, top_k: int = TOP_K,
         "n_queries": len(gold),
         "n_answerable": len(rows_a),
         "config": {"top_k": top_k, "thresholds": list(thresholds),
+                   "summary_gate": DEFAULT_THRESHOLD,
+                   # TF-IDF gate metrics depend on this constant: the tagged
+                   # artifacts were computed with 0.05, the code later moved to
+                   # 0.10 (commit a6832c6) without regenerating them.
+                   "keyword_bonus": KEYWORD_BONUS,
                    "n_bootstrap": n_bootstrap, "seed": seed},
         "summary": summary,
         "delta_sbert_minus_tfidf": delta,
@@ -153,6 +175,13 @@ def format_human(out: Dict[str, Any]) -> str:
         "Mean raw cosine (ans.)    %6.2f    %6.2f    %+6.2f"
         % (a["mean_raw_cosine_answerable"], b["mean_raw_cosine_answerable"],
            d["mean_raw_cosine_answerable"]),
+        "",
+        "H1 (raw top-1 cosine, answerable queries): share above the cut",
+        "  cut       TF-IDF    SBERT",
+        "  > 0.80    %6.2f    %6.2f" % (a["h1"]["share_raw_cosine_gt_0.80"],
+                                       b["h1"]["share_raw_cosine_gt_0.80"]),
+        "  > 0.60    %6.2f    %6.2f" % (a["h1"]["share_raw_cosine_gt_0.60"],
+                                       b["h1"]["share_raw_cosine_gt_0.60"]),
         "",
         "Paired bootstrap (95% CI), sbert - tfidf:",
     ]

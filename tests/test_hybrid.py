@@ -1,4 +1,5 @@
 """Tests for leads.hybrid: convex combination, proba mapping, calibration."""
+import pytest
 from leads.hybrid import (
     calibrate_alpha,
     calibrate_alpha_kfold,
@@ -89,3 +90,29 @@ def test_load_artifacts_warns_on_missing(tmp_path, caplog):
 def test_load_artifacts_missing_dir(tmp_path):
     out = load_artifacts(tmp_path / "nope")
     assert out["files"] == {}
+
+
+def test_calibrate_kfold_groups_must_align_with_rows():
+    import random
+    rng = random.Random(1)
+    n = 30
+    X = [[rng.random(), rng.random()] for _ in range(n)]
+    y = [rng.choice([0, 1, 2]) for _ in range(n)]
+    rule = [rng.random() for _ in range(n)]
+    with pytest.raises(ValueError):
+        calibrate_alpha_kfold(X, rule, y, n_splits=3, n_estimators=5,
+                              groups=list(range(n - 1)))
+
+
+def test_calibrate_kfold_with_groups_runs_and_is_train_only():
+    import random
+    rng = random.Random(2)
+    n = 90
+    X = [[rng.random(), rng.random()] for _ in range(n)]
+    y = [i % 3 for i in range(n)]
+    rule = [rng.random() for _ in range(n)]
+    groups = [i // 2 for i in range(n)]              # two forms per lead
+    out = calibrate_alpha_kfold(X, rule, y, n_splits=3, n_estimators=8,
+                                groups=groups)
+    assert out["n_train"] == n and len(out["oof_ml_scores"]) == n
+    assert len(out["results"]) == 11
