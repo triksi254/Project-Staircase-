@@ -182,6 +182,8 @@ _FUNDING_METHOD_MARKERS = (
     "sav",              # savings / saved / saving
     "parent",           # parents pay / parents have / parent's
     "can pay",
+    "can afford",
+    "can put towards",
     "budget",
     "sponsor",
     "source of fund",   # "no source of funds"

@@ -153,3 +153,24 @@ def test_live_rule_score_ceiling_is_unchanged_by_a_funding_turn():
     bd = live_rule_breakdown(t.rubric_evidence())
     assert bd["mass"] == pytest.approx(0.18)              # unchanged: 0.05+0.05+0.08
     assert "funding_clarity" not in {l["feature"] for l in bd["lines"]}
+
+
+# --------------------------------------------------------------------------- #
+# widened funding-method phrasing ("can afford" / "can put towards")
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("text", [
+    "I can afford £15,000 towards my degree",
+    "I can put towards £15,000 for my studies",
+])
+def test_the_two_new_method_phrases_are_recognised(text):
+    t = _session()
+    _turn(t, text, offset=0)
+    assert t.rubric_evidence()["funding_clarity"] == 2
+
+
+def test_a_bare_amount_alone_still_does_not_set_clarity_via_the_new_phrases():
+    """"can afford"/"can put towards" are added markers, not a relaxation of
+    the amount+method requirement: an amount with neither still does nothing."""
+    t = _session()
+    _turn(t, "The course costs around £9,250 a year", offset=0)
+    assert t.rubric_evidence()["funding_clarity"] == 0
