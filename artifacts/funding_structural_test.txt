@@ -1,0 +1,78 @@
+funding_structural_test - a second funding session, varied phrasing
+DIAGNOSIS ONLY: no fixes applied.
+Path: dashboard/app.py::_answer_query, one tracker for all 6 turns (one session).
+Reproduce: python scripts/funding_structural_test.py
+
+Compare: LEAD-20260921-0002 (6 funding turns, plain phrasing) ended at
+final_rule_score = 0.0 despite discussing tuition, scholarships and instalments.
+
+SUMMARY
+#  category            funding_method_present  funding_clarity key  funding contribution  rule_score
+-  ------------------  ----------------------  -------------------  --------------------  ----------
+1  Fees & Funding      1                       absent               0.0000                0.0000
+2  Entry Requirements  1                       absent               0.0000                0.2778
+3  Scholarships        1                       absent               0.0000                0.2778
+4  Fees & Funding      1                       absent               0.0000                0.2778
+5  Accommodation       1                       absent               0.0000                0.2778
+6  Scholarships        1                       absent               0.0000                0.2778
+
+funding_clarity ever present in rubric_evidence(): False
+funding_clarity contribution ever > 0.0: False
+
+DETAIL
+
+[1] I can pay £15,000 per year towards tuition
+    category assigned (this turn)      : Fees & Funding (confidence 0.6808, answered)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.0000
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 0, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+[2] My parents have £30,000 saved for my education
+    category assigned (this turn)      : Entry Requirements (confidence 0.4009, abstained)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.2778
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 1, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+[3] I'll need a £10,000 scholarship to make it work
+    category assigned (this turn)      : Scholarships (confidence 0.5120, abstained)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.2778
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 1, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+[4] Can I pay fees in three instalments over the year?
+    category assigned (this turn)      : Fees & Funding (confidence 0.4365, abstained)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.2778
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 1, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+[5] How much is tuition at Aston for international students?
+    category assigned (this turn)      : Accommodation (confidence 0.6538, answered)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.2778
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 1, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+[6] What is the total cost of a one-year masters at BCU?
+    category assigned (this turn)      : Scholarships (confidence 0.6103, answered)
+    funding_method_present (cumulative) : 1
+    funding_clarity in evidence row     : absent (unobservable; see module docstring)
+    funding_clarity rubric contribution : 0.0000 / 0.2000 weight  (detail: level=0)
+    live rule_score (cumulative)        : 0.2778
+    rubric_evidence() dict (cumulative) : {'has_english_test': 0, 'english_band': 0.0, 'funding_method_present': 1, 'has_course': 1, 'has_intake': 0, 'session_flags': {'visa_intent_mentioned': False, 'funding_method_present': True}}
+
+VERDICT
+funding_clarity never left 0.0 in this session either: rubric_evidence() does not set the key regardless of phrasing (score_row() then defaults it to FUNDING_UNKNOWN = 0.0 contribution).
+funding_method_present is set (Fees & Funding / Scholarships turns) but is not a
+rubric feature (leads.rubric.WEIGHTS has no such key) and is outside
+chatbot.session_features.LIVE_OBSERVABLE, so score_row() never reads it and the
+live rule score never includes it either way. This is structural, not phrasing-
+dependent: no live chat can move funding_clarity, whatever the wording.
