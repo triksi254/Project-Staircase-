@@ -30,6 +30,18 @@ rubric and made "Hot" unreachable). Two consequences, both deliberate:
   ``leads.hybrid.preprocess_for_prediction`` from the training table shipped
   in ``artifacts/config.json`` (median / mode), so "unknown" means "typical".
 
+Funding clarity is a partial exception: :func:`extract_funding_amount` looks
+for an explicit amount (``£15,000`` / ``£20k`` / ``twenty thousand``, ...)
+alongside a funding-method phrase (self-fund, savings, parents, a sponsor, an
+ability to pay, ...) in a turn's own text, and sets ``funding_clarity`` to a
+tier (1/2/3) from the amount. A method mentioned without an amount leaves the
+session's current value alone rather than resetting it; a session that never
+names an amount this way stays at 0 (unknown), as before. This value is real
+evidence for ``leads.rubric.score_row`` and for the ML path (both see the full
+``rubric_evidence()`` dict), but is deliberately **not** added to
+``LIVE_OBSERVABLE`` below: doing so would move the live rule-score ceiling
+documented above, a separate decision.
+
 COUNSELLOR-ONLY FEATURES (deliberately absent from rubric_evidence):
 ``note_word_count`` / note completeness and ``study_gap_mentioned`` are
 form-extraction features -- how fully a counsellor filled the assessment notes
@@ -41,6 +53,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from collections import Counter
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -89,12 +102,114 @@ def category_entropy(categories: List[str]) -> float:
                       for n in counts.values()), 4)
 
 
+#: Currency amounts: "£15,000" / "£15000" / "15,000 pounds" / "£20k" / "20k".
+#: Case-insensitive (re.IGNORECASE below); commas are stripped before parsing.
+_AMOUNT_NUM = r"\d[\d,]*(?:\.\d+)?"
+_AMOUNT_RE = re.compile(
+    rf"£\s*(?P<a1>{_AMOUNT_NUM})\s*(?P<k1>k)?\b"
+    rf"|(?P<a2>{_AMOUNT_NUM})\s*k\b"
+    rf"|(?P<a3>{_AMOUNT_NUM})\s*pounds?\b",
+    re.IGNORECASE,
+)
+
+#: "twenty thousand" / "fifteen hundred": counted only when a number word is
+#: immediately followed by a scale word, so a bare "one" (as in "a one-year
+#: masters") or "three" (as in "three instalments") is never mistaken for an
+#: amount.
+_WORD_VALUES = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+    "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+    "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+    "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_WORD_SCALES = {"hundred": 100, "thousand": 1000}
+
+
+def _value_from_match(m: "re.Match[str]") -> Optional[float]:
+    if m.group("a1") is not None:
+        v = float(m.group("a1").replace(",", ""))
+        return v * 1000 if m.group("k1") else v
+    if m.group("a2") is not None:
+        return float(m.group("a2").replace(",", "")) * 1000
+    if m.group("a3") is not None:
+        return float(m.group("a3").replace(",", ""))
+    return None
+
+
+def _word_amount(text: str) -> Optional[float]:
+    """First "<number words> <hundred|thousand>" phrase in *text*, if any."""
+    words = re.findall(r"[a-z]+", text.lower())
+    i = 0
+    while i < len(words):
+        if words[i] not in _WORD_VALUES:
+            i += 1
+            continue
+        j, total = i, 0
+        while j < len(words) and words[j] in _WORD_VALUES:
+            total += _WORD_VALUES[words[j]]
+            j += 1
+        if j < len(words) and words[j] in _WORD_SCALES:
+            return float(total * _WORD_SCALES[words[j]])
+        i = j
+    return None
+
+
+def extract_funding_amount(text: str) -> Optional[float]:
+    """The funding amount named in *text*, or ``None``.
+
+    Matches ``£15,000`` / ``£15000`` / ``15,000 pounds`` / ``£20k`` / ``20k`` /
+    a word amount like "twenty thousand" -- case-insensitive, commas stripped.
+    A range ("£15,000-£20,000") and an "up to X" phrase both resolve the same
+    way: of every amount named, the lowest is returned (a range's lower bound;
+    an "up to X" phrase's only number, trivially).
+    """
+    if not text:
+        return None
+    amounts = [v for v in (_value_from_match(m) for m in _AMOUNT_RE.finditer(text))
+               if v is not None]
+    if amounts:
+        return min(amounts)
+    return _word_amount(text)
+
+
+#: Phrases that name a funding *method* (self-funding, parents, savings, a
+#: sponsor, an ability/budget to pay, or its absence). Stemmed loosely ("sav"
+#: catches saved/saving/savings; "parent" catches parents/parent's) so ordinary
+#: inflections are not missed; matched as a case-insensitive substring.
+_FUNDING_METHOD_MARKERS = (
+    "self fund",        # self-fund / self fund / self-funded / self-funding
+    "sav",              # savings / saved / saving
+    "parent",           # parents pay / parents have / parent's
+    "can pay",
+    "budget",
+    "sponsor",
+    "source of fund",   # "no source of funds"
+)
+
+
+def _mentions_funding_method(text: str) -> bool:
+    t = (text or "").lower().replace("-", " ")
+    return any(marker in t for marker in _FUNDING_METHOD_MARKERS)
+
+
+def _funding_tier(amount: float) -> int:
+    """amount -> the funding_clarity level score_row() already understands
+    (1/2/3, i.e. leads.features.FUNDING_UNCLEAR/PARTIAL/CLEAR)."""
+    if amount < 10_000:
+        return 1
+    if amount < 20_000:
+        return 2
+    return 3
+
+
 def empty_evidence() -> Dict[str, Any]:
     """Baseline evidence row: only what a chat can observe, all absent."""
     return {
         "has_english_test": 0,
         "english_band": 0.0,
         "funding_method_present": 0,
+        "funding_clarity": 0,
         "has_course": 0,
         "has_intake": 0,
     }
@@ -210,14 +325,18 @@ class SessionTracker:
         Proxy mapping (see module docstring -- demo approximation):
           Visa & Immigration -> ``session_flags.visa_intent_mentioned``
           Fees & Funding / Scholarships -> ``funding_method_present=1``
-            (interest is not proof of funds; funding *clarity* is not emitted)
+            (interest is not proof of funds; see ``funding_clarity`` below)
           English Language -> ``has_english_test=1`` (proxy for readiness;
             band stays 0.0 = present but unparsed)
           Entry Requirements -> ``has_course=1``
           Application Process -> ``has_intake=1``
-        Passport, destination, qualification, previous applications, funding
-        clarity, study gap and note length are unobservable in chat and are
-        **absent** from the row (unknown, not negative).
+          A turn naming both an amount and a funding method (see
+            ``extract_funding_amount`` / ``_mentions_funding_method``) sets
+            ``funding_clarity`` to that turn's tier; a later qualifying turn
+            overwrites it, a method-only turn leaves it as is.
+        Passport, destination, qualification, previous applications, study gap
+        and note length are unobservable in chat and are **absent** from the
+        row (unknown, not negative).
         """
         ev = empty_evidence()
         seen = set(self.category_counts())
@@ -234,6 +353,14 @@ class SessionTracker:
             ev["has_course"] = 1
         if "Application Process" in seen:
             ev["has_intake"] = 1
+        for t in self._turns:
+            if not _mentions_funding_method(t["user_msg"]):
+                continue
+            amount = extract_funding_amount(t["user_msg"])
+            if amount is not None:
+                ev["funding_clarity"] = _funding_tier(amount)
+            # else: a funding method named without an amount -- leave the
+            # session's current funding_clarity as is (never reset to unknown).
         out = dict(ev)
         out["session_flags"] = flags
         return out

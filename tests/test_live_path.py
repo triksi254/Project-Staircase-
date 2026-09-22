@@ -123,8 +123,11 @@ def test_explicit_config_builds_the_cache(tmp_path):
 # --------------------------------------------------------------------------- #
 # unobservable fields are unknown, not negative
 # --------------------------------------------------------------------------- #
+# funding_clarity used to be unobservable too; extract_funding_amount (see
+# tests/test_funding_amount_extractor.py) made it a partial exception, so it
+# is asserted separately below instead of listed here.
 UNOBSERVABLE = ("passport_status", "destination_uk", "qual_level",
-                "previous_application_mentioned", "funding_clarity",
+                "previous_application_mentioned",
                 "study_gap_mentioned", "note_word_count")
 
 
@@ -132,6 +135,15 @@ def test_unobservable_fields_are_not_asserted_by_chat_evidence():
     ev = _session(["Entry Requirements", "English Language"]).rubric_evidence()
     for key in UNOBSERVABLE:
         assert key not in ev, "chat cannot observe %r; it must stay unknown" % key
+
+
+def test_funding_clarity_is_present_but_stays_unknown_without_an_amount():
+    """Topic interest alone (no amount + method named in a turn's own text)
+    still leaves funding_clarity at 0 -- unlike the other proxy flags, the key
+    is always present (see extract_funding_amount), but its value stays at the
+    unknown default unless a turn actually names both an amount and a method."""
+    ev = _session(["Entry Requirements", "English Language", "Fees & Funding"]).rubric_evidence()
+    assert ev["funding_clarity"] == 0
 
 
 def test_missing_fields_are_imputed_from_the_training_table(tmp_path):
