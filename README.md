@@ -243,9 +243,12 @@ no "unauthenticated requests" warning.)
   0.05, the code later moved to 0.10 (see `artifacts/compare_gold_*_corrected.json`).
   The adaptation loop cannot discriminate targeted from full restoration with 8
   withheld entries over 9 categories (`artifacts/adaptation_results_corrected.json`).
-- **Data governance.** The tracked `CounsellorForms/output/*.json` retains numeric
-  CRM ids (`PII_Removal_Checklist.txt` says "preserved"), whereas the research
-  proposal promised to remove them - a decision for the author / ethics sign-off.
+- **Data governance.** `CounsellorForms/output/*.json` retains numeric CRM ids
+  (`PII_Removal_Checklist.txt` says "preserved"), whereas the research proposal
+  promised to remove them - a decision for the author / ethics sign-off. These
+  exports were tracked in git from `cfdac78` onward and are now untracked
+  (`CounsellorForms/output/.gitignore`), but remain in that history and in any
+  existing clone or fork; untracking does not retroactively remove them.
 
 ## Deviations from the proposal
 

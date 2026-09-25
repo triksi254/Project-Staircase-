@@ -1,4 +1,9 @@
-# The cleaned assessment exports (CSV/JSON) in this directory are intentionally
-# tracked: they are the PII-redacted research corpus produced by the EML
-# pipeline. The parent .gitignore no longer blanket-ignores *.csv / *.json,
-# so these files are tracked by default.
+# The cleaned assessment exports (CSV/JSON) retain the counsellor CRM id
+# (PII_Removal_Checklist.txt lists it as preserved, not redacted), so they are
+# no longer tracked. They stay on disk for the local pipeline (leads/features.py
+# etc.) to read; only git stops shipping them. They were tracked from cfdac78
+# onward and already pushed before this change, so removing them here does not
+# remove them from git history -- see the commit that added this ignore rule.
+*.csv
+*.json
+!.gitignore
