@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="505.841992pt" height="368.697253pt" viewBox="0 0 505.841992 368.697253" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-09-24T04:36:40.018221</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 368.697253 
+L 505.841992 368.697253 
+L 505.841992 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 52.241992 314.306128 
+L 498.641992 314.306128 
+L 498.641992 37.106128 
+L 52.241992 37.106128 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <path d="M 103.969521 314.306128 
+L 103.969521 37.106128 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_2">
+      <defs>
+       <path id="mc282271180" d="M 0 0 
+L 0 3.5 
+" style="stroke: #52514e; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mc282271180" x="103.969521" y="314.306128" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(76.331943 328.962998)">Total scraped</text>
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(65.502685 339.42877)">counsellor records</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_3">
+      <path d="M 218.284502 314.306128 
+L 218.284502 37.106128 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#mc282271180" x="218.284502" y="314.306128" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(200.772588 328.962998)">Labelled</text>
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(204.459033 339.243037)">(rated)</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_5">
+      <path d="M 332.599483 314.306128 
+L 332.599483 37.106128 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#mc282271180" x="332.599483" y="314.306128" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(294.957217 329.063936)">...of which: unique</text>
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(315.287217 339.529707)">CRM ids</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_7">
+      <path d="M 446.914463 314.306128 
+L 446.914463 37.106128 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#mc282271180" x="446.914463" y="314.306128" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(405.02837 329.063936)">...of which: rows in a</text>
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #52514e" transform="translate(411.596729 339.343975)">repeated CRM id</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_9">
+      <path d="M 52.241992 314.306128 
+L 498.641992 314.306128 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <defs>
+       <path id="m74b4e94d44" d="M 0 0 
+L -3.5 0 
+" style="stroke: #52514e; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="314.306128" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="318.310278" transform="rotate(-0 45.241992 318.310278)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_11">
+      <path d="M 52.241992 259.534344 
+L 498.641992 259.534344 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="259.534344" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="263.538494" transform="rotate(-0 45.241992 263.538494)">200</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_13">
+      <path d="M 52.241992 204.762559 
+L 498.641992 204.762559 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="204.762559" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="208.76671" transform="rotate(-0 45.241992 208.76671)">400</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_15">
+      <path d="M 52.241992 149.990775 
+L 498.641992 149.990775 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="149.990775" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="153.994926" transform="rotate(-0 45.241992 153.994926)">600</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_17">
+      <path d="M 52.241992 95.218991 
+L 498.641992 95.218991 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="95.218991" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="99.223141" transform="rotate(-0 45.241992 99.223141)">800</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_19">
+      <path d="M 52.241992 40.447207 
+L 498.641992 40.447207 
+" clip-path="url(#p53a9311d64)" style="fill: none; stroke: #e1e0d9; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#m74b4e94d44" x="52.241992" y="40.447207" style="fill: #52514e; stroke: #52514e; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: end; fill: #52514e" x="45.241992" y="44.451357" transform="rotate(-0 45.241992 44.451357)">1000</text>
+     </g>
+    </g>
+    <g id="text_11">
+     <text style="font-size: 11px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: middle; fill: #52514e" x="15.208301" y="175.706128" transform="rotate(-90 15.208301 175.706128)">Rows</text>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 52.241992 314.306128 
+L 498.641992 314.306128 
+" style="fill: none; stroke: #c3c2b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 72.532901 314.306128 
+L 135.406141 314.306128 
+L 135.406141 50.306128 
+L 72.532901 50.306128 
+z
+" clip-path="url(#p53a9311d64)" style="fill: #898781"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 186.847882 314.306128 
+L 249.721122 314.306128 
+L 249.721122 78.513597 
+L 186.847882 78.513597 
+z
+" clip-path="url(#p53a9311d64)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 301.162863 314.306128 
+L 364.036102 314.306128 
+L 364.036102 152.181647 
+L 301.162863 152.181647 
+z
+" clip-path="url(#p53a9311d64)" style="fill: #2a78d6"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 415.477844 314.306128 
+L 478.351083 314.306128 
+L 478.351083 222.28953 
+L 415.477844 222.28953 
+z
+" clip-path="url(#p53a9311d64)" style="fill: #e34948"/>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 10.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: middle; fill: #0b0b0b" x="103.969521" y="46.306128" transform="rotate(-0 103.969521 46.306128)">964</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 10.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: middle; fill: #0b0b0b" x="218.284502" y="74.513597" transform="rotate(-0 218.284502 74.513597)">861</text>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 10.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: middle; fill: #0b0b0b" x="332.599483" y="148.181647" transform="rotate(-0 332.599483 148.181647)">592</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 10.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: middle; fill: #0b0b0b" x="446.914463" y="218.28953" transform="rotate(-0 446.914463 218.28953)">336</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #e34948" transform="translate(349.74673 187.362188)">39% of labelled rows</text>
+    <text style="font-size: 9.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #e34948" transform="translate(349.74673 197.642228)">share a repeated CRM id</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 8.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; text-anchor: start; fill: #898781" x="52.241992" y="359.497097" transform="rotate(-0 52.241992 359.497097)">Source: recomputed here from data/processed/lead_features_*.json (the same file leads/train_ml.py consumes)</text>
+   </g>
+   <g id="text_18">
+    <text style="font-weight: 700; font-size: 12.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #0b0b0b" transform="translate(107.986914 17.274829)">Almost 2 in 5 labelled rows belong to a lead that appears</text>
+    <text style="font-weight: 700; font-size: 12.5px; font-family: 'Segoe UI', 'DejaVu Sans', 'Arial', sans-serif; fill: #0b0b0b" transform="translate(229.276953 31.106128)">more than once</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p53a9311d64">
+   <rect x="52.241992" y="37.106128" width="446.4" height="277.2"/>
+  </clipPath>
+ </defs>
+</svg>
